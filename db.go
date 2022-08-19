@@ -2,12 +2,12 @@ package db
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"strconv"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/pkg/errors"
 )
 
 type DB struct {
@@ -103,6 +103,18 @@ func (t *DB) ReadItem(txn *badger.Txn, key string) ([]byte, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (t *DB) LoadValue(txn *badger.Txn, key string, value any) error {
+	raw, err := t.ReadItem(txn, key)
+	if err != nil {
+		return errors.Wrapf(err, "read item, key: %s", key)
+	}
+	err = json.Unmarshal(raw, value)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshal, key: %s, raw: %s", key, raw)
+	}
+	return nil
 }
 
 func (t *DB) IncreaseValue(txn *badger.Txn, key string) (newVal int64, err error) {
