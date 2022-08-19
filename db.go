@@ -66,6 +66,10 @@ func (t *DB) Close() {
 	}
 }
 
+func (t *DB) DB() *badger.DB {
+	return t.db
+}
+
 func (t *DB) BytesToInt64(b []byte) int64 {
 	n, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
