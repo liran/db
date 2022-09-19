@@ -70,7 +70,7 @@ func (t *DB) DB() *badger.DB {
 	return t.db
 }
 
-func (t *DB) BytesToInt64(b []byte) int64 {
+func (t *DB) ToInt64(b []byte) int64 {
 	n, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
 		return 0
@@ -81,6 +81,8 @@ func (t *DB) BytesToInt64(b []byte) int64 {
 func (t *DB) ToBytes(data any) []byte {
 	var value []byte
 	switch v := data.(type) {
+	case []byte:
+		value = v
 	case string: // Prevent repeated double quotes in the string
 		value = []byte(v)
 	default:
@@ -89,7 +91,7 @@ func (t *DB) ToBytes(data any) []byte {
 	return value
 }
 
-func (t *DB) ReadItem(txn *badger.Txn, key string) ([]byte, error) {
+func (t *DB) Get(txn *badger.Txn, key string) ([]byte, error) {
 	var result []byte
 	item, err := txn.Get([]byte(key))
 	if err != nil {
@@ -105,8 +107,12 @@ func (t *DB) ReadItem(txn *badger.Txn, key string) ([]byte, error) {
 	return result, nil
 }
 
-func (t *DB) LoadValue(txn *badger.Txn, key string, value any) error {
-	raw, err := t.ReadItem(txn, key)
+func (t *DB) Set(txn *badger.Txn, key string, value any) error {
+	return txn.Set([]byte(key), t.ToBytes(value))
+}
+
+func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
+	raw, err := t.Get(txn, key)
 	if err != nil {
 		return errors.Wrapf(err, "read item, key: %s", key)
 	}
@@ -117,8 +123,8 @@ func (t *DB) LoadValue(txn *badger.Txn, key string, value any) error {
 	return nil
 }
 
-func (t *DB) IncreaseValue(txn *badger.Txn, key string) (newVal int64, err error) {
-	item, err := t.ReadItem(txn, key)
+func (t *DB) Inc(txn *badger.Txn, key string) (newVal int64, err error) {
+	item, err := t.Get(txn, key)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			newVal = 1
@@ -126,14 +132,14 @@ func (t *DB) IncreaseValue(txn *badger.Txn, key string) (newVal int64, err error
 			return
 		}
 	} else {
-		newVal = t.BytesToInt64(item) + 1
+		newVal = t.ToInt64(item) + 1
 	}
 	err = txn.Set([]byte(key), t.ToBytes(newVal))
 	return
 }
 
-func (t *DB) DecreaseValue(txn *badger.Txn, key string) (newVal int64, err error) {
-	item, err := t.ReadItem(txn, key)
+func (t *DB) Dec(txn *badger.Txn, key string) (newVal int64, err error) {
+	item, err := t.Get(txn, key)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			newVal = 0
@@ -141,7 +147,7 @@ func (t *DB) DecreaseValue(txn *badger.Txn, key string) (newVal int64, err error
 			return
 		}
 	} else {
-		newVal = t.BytesToInt64(item) - 1
+		newVal = t.ToInt64(item) - 1
 	}
 	err = txn.Set([]byte(key), t.ToBytes(newVal))
 	return
