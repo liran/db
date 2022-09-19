@@ -123,32 +123,31 @@ func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
 	return nil
 }
 
-func (t *DB) Inc(txn *badger.Txn, key string) (newVal int64, err error) {
-	item, err := t.Get(txn, key)
+// return new value
+func (t *DB) Inc(txn *badger.Txn, key string) (int64, error) {
+	var val int64
+	raw, err := t.Get(txn, key)
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
-			newVal = 1
-		} else {
-			return
+		if !errors.Is(err, badger.ErrKeyNotFound) {
+			return 0, err
 		}
 	} else {
-		newVal = t.ToInt64(item) + 1
+		val = t.ToInt64(raw)
 	}
-	err = txn.Set([]byte(key), t.ToBytes(newVal))
-	return
+	val += 1
+	return val, t.Set(txn, key, val)
 }
 
-func (t *DB) Dec(txn *badger.Txn, key string) (newVal int64, err error) {
-	item, err := t.Get(txn, key)
+func (t *DB) Dec(txn *badger.Txn, key string) (int64, error) {
+	var val int64
+	raw, err := t.Get(txn, key)
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
-			newVal = 0
-		} else {
-			return
+		if !errors.Is(err, badger.ErrKeyNotFound) {
+			return 0, err
 		}
 	} else {
-		newVal = t.ToInt64(item) - 1
+		val = t.ToInt64(raw)
 	}
-	err = txn.Set([]byte(key), t.ToBytes(newVal))
-	return
+	val -= 1
+	return val, t.Set(txn, key, val)
 }
