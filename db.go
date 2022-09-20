@@ -151,3 +151,20 @@ func (t *DB) Dec(txn *badger.Txn, key string) (int64, error) {
 	val -= 1
 	return val, t.Set(txn, key, val)
 }
+
+func (t *DB) Txn(fn func(txn *badger.Txn) error, onlyRead ...bool) error {
+	if len(onlyRead) > 0 && onlyRead[0] {
+		return t.db.View(fn)
+	}
+	return t.db.Update(fn)
+}
+
+func (t *DB) ConflictRetryTxn(fn func(txn *badger.Txn) error) error {
+	for {
+		err := t.Txn(fn)
+		if err != nil && errors.Is(err, badger.ErrConflict) {
+			continue
+		}
+		return err
+	}
+}
