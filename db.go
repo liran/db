@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
@@ -13,6 +14,7 @@ import (
 type DB struct {
 	db  *badger.DB
 	dir string
+	m   sync.Mutex
 }
 
 func NewDB(dirs ...string) *DB {
@@ -44,14 +46,27 @@ func (t *DB) Open() error {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-		again:
-			if t.db == nil || db.IsClosed() {
-				return
+
+		clear := func() (end, terminate bool) {
+			t.m.Lock()
+			defer t.m.Unlock()
+
+			if t.db == nil || t.db.IsClosed() {
+				return true, true
 			}
-			err := db.RunValueLogGC(0.7)
-			if err == nil {
-				goto again
+
+			return t.db.RunValueLogGC(0.7) != nil, false
+		}
+
+		for range ticker.C {
+			for {
+				end, terminate := clear()
+				if terminate {
+					return
+				}
+				if end {
+					break
+				}
 			}
 		}
 	}()
@@ -60,6 +75,9 @@ func (t *DB) Open() error {
 }
 
 func (t *DB) Close() {
+	t.m.Lock()
+	defer t.m.Unlock()
+
 	if t.db != nil {
 		t.db.Close()
 		t.db = nil
