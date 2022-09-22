@@ -124,7 +124,7 @@ func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
 }
 
 // return new value
-func (t *DB) Inc(txn *badger.Txn, key string) (int64, error) {
+func (t *DB) Inc(txn *badger.Txn, key string, step int64) (int64, error) {
 	var val int64
 	raw, err := t.Get(txn, key)
 	if err != nil {
@@ -134,11 +134,11 @@ func (t *DB) Inc(txn *badger.Txn, key string) (int64, error) {
 	} else {
 		val = t.ToInt64(raw)
 	}
-	val += 1
+	val += step
 	return val, t.Set(txn, key, val)
 }
 
-func (t *DB) Dec(txn *badger.Txn, key string) (int64, error) {
+func (t *DB) Dec(txn *badger.Txn, key string, step int64) (int64, error) {
 	var val int64
 	raw, err := t.Get(txn, key)
 	if err != nil {
@@ -148,7 +148,7 @@ func (t *DB) Dec(txn *badger.Txn, key string) (int64, error) {
 	} else {
 		val = t.ToInt64(raw)
 	}
-	val -= 1
+	val -= step
 	return val, t.Set(txn, key, val)
 }
 
