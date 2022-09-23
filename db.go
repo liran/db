@@ -36,7 +36,7 @@ func (t *DB) Open() error {
 		return errors.New("duplicate database instance")
 	}
 
-	db, err := badger.Open(badger.DefaultOptions(t.dir))
+	db, err := badger.Open(badger.DefaultOptions(t.dir).WithLoggingLevel(badger.WARNING))
 	if err != nil {
 		return err
 	}
