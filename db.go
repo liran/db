@@ -129,6 +129,17 @@ func (t *DB) Set(txn *badger.Txn, key string, value any) error {
 	return txn.Set([]byte(key), t.ToBytes(value))
 }
 
+func (t *DB) Has(txn *badger.Txn, key string) (bool, error) {
+	_, err := txn.Get([]byte(key))
+	if err != nil {
+		if errors.Is(err, badger.ErrKeyNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
 	raw, err := t.Get(txn, key)
 	if err != nil {
