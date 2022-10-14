@@ -3,7 +3,6 @@ package db
 import (
 	"encoding/json"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -11,13 +10,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-type DB struct {
-	db  *badger.DB
-	dir string
-	m   sync.Mutex
+var ErrKeyNotFound = badger.ErrKeyNotFound
+
+type Txn struct {
+	*badger.Txn
 }
 
-func NewDB(dirs ...string) *DB {
+type DB struct {
+	db *badger.DB
+	m  sync.Mutex
+}
+
+// or set env: DATABASE_DIR
+func New(dirs ...string) (*DB, error) {
 	var dir string
 	if len(dirs) > 0 {
 		dir = dirs[0]
@@ -28,18 +33,13 @@ func NewDB(dirs ...string) *DB {
 	if dir == "" {
 		dir = "/tmp/db"
 	}
-	return &DB{dir: dir}
+	db := &DB{}
+	return db, db.open(dir)
 }
 
-func (t *DB) Open() error {
-	if t.db != nil {
-		return errors.New("duplicate database instance")
-	}
-
-	opts := badger.DefaultOptions(t.dir)
+func (t *DB) open(dir string) error {
+	opts := badger.DefaultOptions(dir)
 	opts = opts.WithLoggingLevel(badger.WARNING)
-	opts = opts.WithValueLogFileSize(256 * 1024 * 1024)
-	opts = opts.WithNumCompactors(2)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return err
@@ -88,32 +88,11 @@ func (t *DB) Close() {
 	}
 }
 
-func (t *DB) DB() *badger.DB {
-	return t.db
+func (t *DB) Set(txn *Txn, key string, value any) error {
+	return txn.Set([]byte(key), ToBytes(value))
 }
 
-func (t *DB) ToInt64(b []byte) int64 {
-	n, err := strconv.ParseInt(string(b), 10, 64)
-	if err != nil {
-		return 0
-	}
-	return n
-}
-
-func (t *DB) ToBytes(data any) []byte {
-	var value []byte
-	switch v := data.(type) {
-	case []byte:
-		value = v
-	case string: // Prevent repeated double quotes in the string
-		value = []byte(v)
-	default:
-		value, _ = json.Marshal(data)
-	}
-	return value
-}
-
-func (t *DB) Get(txn *badger.Txn, key string) ([]byte, error) {
+func (t *DB) Get(txn *Txn, key string) ([]byte, error) {
 	var result []byte
 	item, err := txn.Get([]byte(key))
 	if err != nil {
@@ -129,14 +108,10 @@ func (t *DB) Get(txn *badger.Txn, key string) ([]byte, error) {
 	return result, nil
 }
 
-func (t *DB) Set(txn *badger.Txn, key string, value any) error {
-	return txn.Set([]byte(key), t.ToBytes(value))
-}
-
-func (t *DB) Has(txn *badger.Txn, key string) (bool, error) {
+func (t *DB) Has(txn *Txn, key string) (bool, error) {
 	_, err := txn.Get([]byte(key))
 	if err != nil {
-		if errors.Is(err, badger.ErrKeyNotFound) {
+		if errors.Is(err, ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -144,7 +119,15 @@ func (t *DB) Has(txn *badger.Txn, key string) (bool, error) {
 	return true, nil
 }
 
-func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
+func (t *DB) Del(txn *Txn, key string) error {
+	err := txn.Delete([]byte(key))
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return err
+	}
+	return nil
+}
+
+func (t *DB) Unmarshal(txn *Txn, key string, value any) error {
 	raw, err := t.Get(txn, key)
 	if err != nil {
 		return errors.Wrapf(err, "read item, key: %s", key)
@@ -157,42 +140,37 @@ func (t *DB) Unmarshal(txn *badger.Txn, key string, value any) error {
 }
 
 // return new value
-func (t *DB) Inc(txn *badger.Txn, key string, step int64) (int64, error) {
+func (t *DB) Inc(txn *Txn, key string, step int64) (int64, error) {
 	var val int64
-	raw, err := t.Get(txn, key)
-	if err != nil {
-		if !errors.Is(err, badger.ErrKeyNotFound) {
-			return 0, err
-		}
-	} else {
-		val = t.ToInt64(raw)
+	err := t.Unmarshal(txn, key, &val)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return 0, err
 	}
 	val += step
 	return val, t.Set(txn, key, val)
 }
 
-func (t *DB) Dec(txn *badger.Txn, key string, step int64) (int64, error) {
+func (t *DB) Dec(txn *Txn, key string, step int64) (int64, error) {
 	var val int64
-	raw, err := t.Get(txn, key)
-	if err != nil {
-		if !errors.Is(err, badger.ErrKeyNotFound) {
-			return 0, err
-		}
-	} else {
-		val = t.ToInt64(raw)
+	err := t.Unmarshal(txn, key, &val)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return 0, err
 	}
 	val -= step
 	return val, t.Set(txn, key, val)
 }
 
-func (t *DB) Txn(fn func(txn *badger.Txn) error, onlyRead ...bool) error {
-	if len(onlyRead) > 0 && onlyRead[0] {
-		return t.db.View(fn)
+func (t *DB) Txn(fn func(txn *Txn) error, onlyRead ...bool) error {
+	cb := func(t *badger.Txn) error {
+		return fn(&Txn{Txn: t})
 	}
-	return t.db.Update(fn)
+	if len(onlyRead) > 0 && onlyRead[0] {
+		return t.db.View(cb)
+	}
+	return t.db.Update(cb)
 }
 
-func (t *DB) ConflictRetryTxn(fn func(txn *badger.Txn) error) error {
+func (t *DB) ConflictRetryTxn(fn func(txn *Txn) error) error {
 	for {
 		err := t.Txn(fn)
 		if err != nil && errors.Is(err, badger.ErrConflict) {
