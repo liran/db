@@ -139,6 +139,43 @@ func (t *DB) Unmarshal(txn *Txn, key string, value any) error {
 	return nil
 }
 
+func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) (continue_ bool)) error {
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = !keyOnly
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	dataValid := beginKey == ""
+
+	prefixBytes := []byte(prefix)
+	for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+		item := it.Item()
+
+		k := string(item.Key())
+
+		if !dataValid {
+			dataValid = beginKey == k
+			continue
+		}
+
+		if keyOnly {
+			if !fn(k, nil) {
+				return nil
+			}
+			continue
+		}
+
+		raw, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+		if !fn(k, raw) {
+			return nil
+		}
+	}
+	return nil
+}
+
 // return new value
 func (t *DB) Inc(txn *Txn, key string, step int64) (int64, error) {
 	var val int64
@@ -160,11 +197,11 @@ func (t *DB) Dec(txn *Txn, key string, step int64) (int64, error) {
 	return val, t.Set(txn, key, val)
 }
 
-func (t *DB) Txn(fn func(txn *Txn) error, onlyRead ...bool) error {
+func (t *DB) Txn(fn func(txn *Txn) error, readOnly ...bool) error {
 	cb := func(t *badger.Txn) error {
 		return fn(&Txn{Txn: t})
 	}
-	if len(onlyRead) > 0 && onlyRead[0] {
+	if len(readOnly) > 0 && readOnly[0] {
 		return t.db.View(cb)
 	}
 	return t.db.Update(cb)
