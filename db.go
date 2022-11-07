@@ -11,6 +11,7 @@ import (
 )
 
 var ErrKeyNotFound = badger.ErrKeyNotFound
+var ErrConflict = badger.ErrConflict
 
 type Txn struct {
 	*badger.Txn
@@ -51,26 +52,21 @@ func (t *DB) open(dir string) error {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 
-		clear := func() (end, terminate bool) {
+		clear := func() bool {
 			t.m.Lock()
 			defer t.m.Unlock()
 
 			if t.db == nil || t.db.IsClosed() {
-				return true, true
+				return true
 			}
 
-			return t.db.RunValueLogGC(0.7) != nil, false
+			t.db.RunValueLogGC(0.7)
+			return false
 		}
 
 		for range ticker.C {
-			for {
-				end, terminate := clear()
-				if terminate {
-					return
-				}
-				if end {
-					break
-				}
+			if clear() {
+				return
 			}
 		}
 	}()
@@ -139,7 +135,7 @@ func (t *DB) Unmarshal(txn *Txn, key string, value any) error {
 	return nil
 }
 
-func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) (continue_ bool)) error {
+func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) error) error {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = !keyOnly
 	it := txn.NewIterator(opts)
@@ -159,8 +155,8 @@ func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn fun
 		}
 
 		if keyOnly {
-			if !fn(k, nil) {
-				return nil
+			if err := fn(k, nil); err != nil {
+				return err
 			}
 			continue
 		}
@@ -169,8 +165,8 @@ func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn fun
 		if err != nil {
 			return err
 		}
-		if !fn(k, raw) {
-			return nil
+		if err := fn(k, raw); err != nil {
+			return err
 		}
 	}
 	return nil

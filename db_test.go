@@ -47,10 +47,10 @@ func TestList(t *testing.T) {
 
 	n := 0
 	err = db.Txn(func(txn *Txn) error {
-		return db.List(txn, "data:", "data:0", true, func(key string, value []byte) (continue_ bool) {
+		return db.List(txn, "data:", "data:0", true, func(key string, value []byte) error {
 			n++
 			log.Printf("[%s] %s", key, value)
-			return true
+			return nil
 		})
 	}, true)
 	if err != nil {
