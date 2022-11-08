@@ -46,15 +46,33 @@ func TestList(t *testing.T) {
 	})
 
 	n := 0
-	err = db.Txn(func(txn *Txn) error {
-		return db.List(txn, "data:", "data:0", true, func(key string, value []byte) error {
-			n++
-			log.Printf("[%s] %s", key, value)
-			return nil
-		})
-	}, true)
+	err = db.List("data:", "data:0", true, func(key string, value []byte) error {
+		n++
+		log.Printf("[%s] %s", key, value)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	log.Println(n)
+}
+
+func TestStream(t *testing.T) {
+	db, err := New("/tmp/db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	db.Txn(func(txn *Txn) error {
+		for i := 0; i < 1000; i++ {
+			db.Set(txn, fmt.Sprintf("data:%d", i), i)
+		}
+		return nil
+	})
+
+	db.ConcurrencyList("data:", 2, func(key string, value []byte) error {
+		log.Printf("[%s] %s", key, value)
+		return nil
+	})
 }

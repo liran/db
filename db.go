@@ -1,12 +1,14 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"sync"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/ristretto/z"
 	"github.com/pkg/errors"
 )
 
@@ -135,41 +137,67 @@ func (t *DB) Unmarshal(txn *Txn, key string, value any) error {
 	return nil
 }
 
-func (t *DB) List(txn *Txn, prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) error) error {
-	opts := badger.DefaultIteratorOptions
-	opts.PrefetchValues = !keyOnly
-	it := txn.NewIterator(opts)
-	defer it.Close()
+func (t *DB) List(prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) error) error {
+	return t.Txn(func(txn *Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = !keyOnly
+		it := txn.NewIterator(opts)
+		defer it.Close()
 
-	dataValid := beginKey == ""
+		dataValid := beginKey == ""
 
-	prefixBytes := []byte(prefix)
-	for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
-		item := it.Item()
+		prefixBytes := []byte(prefix)
+		for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+			item := it.Item()
 
-		k := string(item.Key())
+			k := string(item.Key())
 
-		if !dataValid {
-			dataValid = beginKey == k
-			continue
-		}
+			if !dataValid {
+				dataValid = beginKey == k
+				continue
+			}
 
-		if keyOnly {
-			if err := fn(k, nil); err != nil {
+			if keyOnly {
+				if err := fn(k, nil); err != nil {
+					return err
+				}
+				continue
+			}
+
+			raw, err := item.ValueCopy(nil)
+			if err != nil {
 				return err
 			}
-			continue
+			if err := fn(k, raw); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+}
 
-		raw, err := item.ValueCopy(nil)
+func (t *DB) ConcurrencyList(prefix string, concurrency int, fn func(key string, value []byte) error) error {
+	stream := t.db.NewStream()
+	stream.NumGo = concurrency
+	stream.Prefix = []byte(prefix) // Leave nil for iteration over the whole DB.
+
+	// Send is called serially, while Stream.Orchestrate is running.
+	stream.Send = func(buf *z.Buffer) error {
+		list, err := badger.BufferToKVList(buf)
 		if err != nil {
 			return err
 		}
-		if err := fn(k, raw); err != nil {
-			return err
+		kvs := list.GetKv()
+		for _, v := range kvs {
+			if err = fn(string(v.Key), v.Value); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
-	return nil
+
+	// Run the stream
+	return stream.Orchestrate(context.Background())
 }
 
 // return new value
