@@ -71,8 +71,11 @@ func TestStream(t *testing.T) {
 		return nil
 	})
 
-	db.ConcurrencyList("data:", 2, func(key string, value []byte) error {
+	err = db.ConcurrencyList("data:", 2, func(key string, value []byte) error {
 		log.Printf("[%s] %s", key, value)
-		return nil
+		return errors.New("stop")
 	})
+	if err != nil {
+		log.Println(err)
+	}
 }

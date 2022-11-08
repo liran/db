@@ -8,6 +8,7 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v3/pb"
 	"github.com/dgraph-io/ristretto/z"
 	"github.com/pkg/errors"
 )
@@ -181,9 +182,12 @@ func (t *DB) ConcurrencyList(prefix string, concurrency int, fn func(key string,
 	stream.NumGo = concurrency
 	stream.Prefix = []byte(prefix) // Leave nil for iteration over the whole DB.
 
+	var list *pb.KVList
+	var err error
+
 	// Send is called serially, while Stream.Orchestrate is running.
 	stream.Send = func(buf *z.Buffer) error {
-		list, err := badger.BufferToKVList(buf)
+		list, err = badger.BufferToKVList(buf)
 		if err != nil {
 			return err
 		}
@@ -197,7 +201,11 @@ func (t *DB) ConcurrencyList(prefix string, concurrency int, fn func(key string,
 	}
 
 	// Run the stream
-	return stream.Orchestrate(context.Background())
+	e := stream.Orchestrate(context.Background())
+	if err != nil {
+		return err
+	}
+	return e
 }
 
 // return new value
