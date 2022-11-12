@@ -15,6 +15,7 @@ import (
 
 var ErrKeyNotFound = badger.ErrKeyNotFound
 var ErrConflict = badger.ErrConflict
+var ErrStopIterate = errors.New("stop iterate")
 
 type Txn struct {
 	*badger.Txn
@@ -160,6 +161,9 @@ func (t *DB) List(prefix string, beginKey string, keyOnly bool, fn func(key stri
 
 			if keyOnly {
 				if err := fn(k, nil); err != nil {
+					if errors.Is(err, ErrStopIterate) {
+						err = nil
+					}
 					return err
 				}
 				continue
@@ -170,6 +174,9 @@ func (t *DB) List(prefix string, beginKey string, keyOnly bool, fn func(key stri
 				return err
 			}
 			if err := fn(k, raw); err != nil {
+				if errors.Is(err, ErrStopIterate) {
+					err = nil
+				}
 				return err
 			}
 		}
@@ -203,6 +210,9 @@ func (t *DB) ConcurrencyList(prefix string, concurrency int, fn func(key string,
 	// Run the stream
 	e := stream.Orchestrate(context.Background())
 	if err != nil {
+		if errors.Is(err, ErrStopIterate) {
+			err = nil
+		}
 		return err
 	}
 	return e
