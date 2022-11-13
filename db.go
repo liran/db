@@ -45,6 +45,14 @@ func New(dirs ...string) (*DB, error) {
 func (t *DB) open(dir string) error {
 	opts := badger.DefaultOptions(dir)
 	opts = opts.WithLoggingLevel(badger.WARNING)
+	// opts = opts.WithNumMemtables(1)
+	// opts = opts.WithNumLevelZeroTables(1)
+	// opts = opts.WithNumLevelZeroTablesStall(3)
+	// opts = opts.WithNumCompactors(2)
+	// opts = opts.WithValueLogFileSize(1024 * 1024)
+	// opts = opts.WithValueLogMaxEntries(1000)
+	// opts = opts.WithZSTDCompressionLevel(10)
+	// opts = opts.WithNumGoroutines(1)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return err
