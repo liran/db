@@ -51,12 +51,13 @@ func TestList(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			txn.Set(fmt.Sprintf("data:%d", i), i)
 		}
+		txn.Set("test:1", 1)
 		return nil
 	})
 
 	n := 0
 	err = db.Txn(func(txn *Txn) error {
-		return txn.List("data:", "", true, func(key string, value []byte) error {
+		return txn.List("test:", "", false, func(key string, value []byte) error {
 			n++
 			log.Printf("[%s] %s", key, value)
 			return nil
