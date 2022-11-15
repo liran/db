@@ -20,19 +20,33 @@ func init() {
 func main() {
 	var src string
 	var dst string
-	flag.StringVar(&src, "src", "database", "v2 database dir")
-	flag.StringVar(&dst, "dst", "database.db", "v3 database file")
+	var useStream bool
+	var garbageCollection bool
+
+	flag.StringVar(&src, "s", "database", "v2 database dir")
+	flag.StringVar(&dst, "d", "database.db", "v3 database file")
+	flag.BoolVar(&useStream, "stream", false, "stream list")
+	flag.BoolVar(&garbageCollection, "g", false, "garbage collection")
 	flag.Parse()
 
 	uptime := time.Now()
 
 	opts := badger.DefaultOptions(src)
-	opts = opts.WithLoggingLevel(badger.INFO)
+	opts = opts.WithLoggingLevel(badger.DEBUG)
 	srcDB, err := badger.Open(opts)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer srcDB.Close()
+
+	if garbageCollection {
+		for {
+			if err := srcDB.RunValueLogGC(0.7); err != nil {
+				return
+			}
+			time.Sleep(time.Second)
+		}
+	}
 
 	dstDB, err := db.New(dst)
 	if err != nil {
@@ -55,22 +69,44 @@ func main() {
 	})
 	defer pool.Close()
 
-	stream := srcDB.NewStream()
-	stream.NumGo = runtime.NumCPU()
-	stream.Send = func(buf *z.Buffer) error {
-		list, err := badger.BufferToKVList(buf)
+	if useStream {
+		stream := srcDB.NewStream()
+		stream.NumGo = runtime.NumCPU()
+		stream.Send = func(buf *z.Buffer) error {
+			list, err := badger.BufferToKVList(buf)
+			if err != nil {
+				return err
+			}
+			kvs := list.GetKv()
+			for _, v := range kvs {
+				pool.Process(v.Key, v.Value)
+			}
+			return nil
+		}
+		err = stream.Orchestrate(context.Background())
 		if err != nil {
-			return err
+			log.Fatalln(err)
 		}
-		kvs := list.GetKv()
-		for _, v := range kvs {
-			pool.Process(v.Key, v.Value)
+	} else {
+		err = srcDB.View(func(txn *badger.Txn) error {
+			opts := badger.DefaultIteratorOptions
+			opts.PrefetchSize = 20
+			it := txn.NewIterator(opts)
+			defer it.Close()
+			for it.Rewind(); it.Valid(); it.Next() {
+				item := it.Item()
+				k := item.Key()
+				v, err := item.ValueCopy(nil)
+				if err != nil {
+					return err
+				}
+				pool.Process(k, v)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Fatalln(err)
 		}
-		return nil
-	}
-	err = stream.Orchestrate(context.Background())
-	if err != nil {
-		log.Fatalln(err)
 	}
 
 	pool.Wait()
