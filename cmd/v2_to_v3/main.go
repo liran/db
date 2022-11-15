@@ -52,8 +52,8 @@ func main() {
 			if err != nil {
 				return err
 			}
-			log.Printf("copied %s", k)
 			index++
+			log.Printf("[%d] copied %s", index, k)
 		}
 		return nil
 	})
