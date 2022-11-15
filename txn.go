@@ -13,7 +13,12 @@ type Txn struct {
 }
 
 func (t *Txn) Set(key string, value any) error {
-	return t.b.Put([]byte(key), ToBytes(value))
+	raw := ToBytes(value)
+	compressed, err := GzipCompress(raw)
+	if err != nil || len(compressed) > len(raw) {
+		compressed = raw
+	}
+	return t.b.Put([]byte(key), compressed)
 }
 
 func (t *Txn) Get(key string) ([]byte, error) {
@@ -21,7 +26,12 @@ func (t *Txn) Get(key string) ([]byte, error) {
 	if val == nil {
 		return nil, ErrKeyNotFound
 	}
-	return val, nil
+
+	decode, err := GzipUncompress(val)
+	if err != nil {
+		decode = val
+	}
+	return decode, nil
 }
 
 func (t *Txn) Has(key string) bool {
@@ -86,7 +96,11 @@ func (t *Txn) List(prefix string, beginKey string, fn func(key string, value []b
 
 	for ; k != nil; k, v = c.Next() {
 		if bytes.HasPrefix(k, bytePrefix) {
-			if err := fn(string(k), v); err != nil {
+			decode, err := GzipUncompress(v)
+			if err != nil {
+				decode = v
+			}
+			if err := fn(string(k), decode); err != nil {
 				if errors.Is(err, ErrStopIterate) {
 					err = nil
 				}
