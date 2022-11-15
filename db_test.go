@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"testing"
-	"time"
 )
 
 func TestAll(t *testing.T) {
@@ -17,7 +15,14 @@ func TestAll(t *testing.T) {
 	defer db.Close()
 
 	db.Txn(func(txn *Txn) error {
-		n, _ := db.Inc(txn, "a", 1)
+		err = txn.Del("aaa")
+		if err != nil {
+			return err
+		}
+		if txn.Has("a") {
+			txn.Del("a")
+		}
+		n, _ := txn.Inc("a", 1)
 		if n != 1 {
 			t.Fatal("not expected")
 		}
@@ -25,7 +30,7 @@ func TestAll(t *testing.T) {
 	})
 
 	err = db.Txn(func(txn *Txn) error {
-		_, err := db.Get(txn, "b")
+		_, err := txn.Get("b")
 		return err
 	})
 	if !errors.Is(err, ErrKeyNotFound) {
@@ -42,80 +47,72 @@ func TestList(t *testing.T) {
 
 	db.Txn(func(txn *Txn) error {
 		for i := 0; i < 1000; i++ {
-			db.Set(txn, fmt.Sprintf("data:%d", i), i)
+			txn.Set(fmt.Sprintf("data:%d", i), i)
 		}
 		return nil
 	})
 
 	n := 0
-	err = db.List("data:", "data:0", true, func(key string, value []byte) error {
-		n++
-		log.Printf("[%s] %s", key, value)
-		return nil
-	})
+	err = db.Txn(func(txn *Txn) error {
+		return txn.List("data:", "", true, func(key string, value []byte) error {
+			n++
+			log.Printf("[%s] %s", key, value)
+			return nil
+		})
+	}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	log.Println(n)
 }
 
-func TestStream(t *testing.T) {
+func TestRW(t *testing.T) {
 	db, err := New("/tmp/db")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	db.Txn(func(txn *Txn) error {
-		for i := 0; i < 1000; i++ {
-			db.Set(txn, fmt.Sprintf("data:%d", i), i)
-		}
-		return nil
-	})
-
-	err = db.ConcurrencyList("data:", 2, func(key string, value []byte) error {
-		log.Printf("[%s] %s", key, value)
-		return errors.New("stop")
+	err = db.Txn(func(txn *Txn) error {
+		return txn.Set("bool", true)
 	})
 	if err != nil {
-		log.Println(err)
+		t.Fatal(err)
+	}
+
+	err = db.Txn(func(txn *Txn) error {
+		raw, err := txn.Get("bool")
+		if err != nil {
+			return err
+		}
+		log.Printf("%s", raw)
+
+		sss := false
+		err = txn.Unmarshal("bool", &sss)
+		if err != nil {
+			return err
+		}
+		log.Printf("%v", sss)
+
+		return nil
+	}, true)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestListPerformance(t *testing.T) {
+func TestNotFound(t *testing.T) {
 	db, err := New("/tmp/db")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	raw, err := os.ReadFile("go.mod")
+	err = db.Txn(func(txn *Txn) error {
+		_, err := txn.Get("not_found")
+		return err
+	}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	for i := 0; i < 100*10000; i++ {
-		err = db.Txn(func(txn *Txn) error {
-			err = db.Set(txn, fmt.Sprintf("data:%d", i), raw)
-			if err != nil {
-				return err
-			}
-			log.Printf("writen: %d", i)
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	err = db.List("data:", "", false, func(key string, value []byte) error {
-		log.Println(key)
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	log.Println("sleep minute")
-	time.Sleep(time.Minute)
 }
