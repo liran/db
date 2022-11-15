@@ -42,7 +42,7 @@ func main() {
 	}
 
 	err = client.Txn(func(txn *db.Txn) error {
-		return txn.List("data:", "", func(key string, value []byte) error {
+		return txn.List("data:", "", false, func(key string, value []byte) error {
 			index++
 			log.Println(index, key, string(value[:50]))
 			return nil

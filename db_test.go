@@ -54,7 +54,7 @@ func TestList(t *testing.T) {
 
 	n := 0
 	err = db.Txn(func(txn *Txn) error {
-		return txn.List("data:", "data:0", func(key string, value []byte) error {
+		return txn.List("data:", "", true, func(key string, value []byte) error {
 			n++
 			log.Printf("[%s] %s", key, value)
 			return nil
