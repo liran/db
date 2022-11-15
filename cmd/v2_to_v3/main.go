@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+	"runtime"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/ristretto/z"
+	"github.com/liran/concurrency/v2"
 	"github.com/liran/db/v3"
 )
 
@@ -37,29 +41,39 @@ func main() {
 	defer dstDB.Close()
 
 	index := 0
-	err = srcDB.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.Key()
-			err := item.Value(func(v []byte) error {
-				return dstDB.Txn(func(tx *db.Txn) error {
-					return tx.Set(string(k), v)
-				})
-			})
-			if err != nil {
-				return err
-			}
-			index++
-			log.Printf("[%d] copied %s", index, k)
+	pool := concurrency.New(runtime.NumCPU(), func(params ...any) {
+		k := params[0].([]byte)
+		v := params[1].([]byte)
+		err = dstDB.Txn(func(tx *db.Txn) error {
+			return tx.Set(string(k), v)
+		})
+		if err != nil {
+			log.Fatalln(err)
+		}
+		index++
+		log.Printf("[%d] copied %s", index, k)
+	})
+	defer pool.Close()
+
+	stream := srcDB.NewStream()
+	stream.NumGo = runtime.NumCPU()
+	stream.Send = func(buf *z.Buffer) error {
+		list, err := badger.BufferToKVList(buf)
+		if err != nil {
+			return err
+		}
+		kvs := list.GetKv()
+		for _, v := range kvs {
+			pool.Process(v.Key, v.Value)
 		}
 		return nil
-	})
+	}
+	err = stream.Orchestrate(context.Background())
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	pool.Wait()
 
 	log.Printf("%d keys complete. uptime: %v", index, time.Since(uptime))
 }
