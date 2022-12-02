@@ -20,12 +20,15 @@ func New(dir string, readOnly bool) (*DB, error) {
 
 	// create a default bucket
 	bucket := []byte("d")
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(bucket)
-		return err
-	})
-	if err != nil {
-		return nil, err
+
+	if !readOnly {
+		err = db.Update(func(tx *bolt.Tx) error {
+			_, err := tx.CreateBucketIfNotExists(bucket)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &DB{db: db, bucket: bucket}, nil

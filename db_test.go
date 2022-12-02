@@ -149,3 +149,48 @@ func TestConflict(t *testing.T) {
 	}
 	<-ctx.Done()
 }
+
+func TestReadOnly(t *testing.T) {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	go func() {
+		db, err := New("/tmp/db", false)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		err = db.Txn(func(txn *Txn) error {
+			return txn.Set("a", "1")
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("sleep 10s")
+		time.Sleep(10 * time.Second)
+	}()
+
+	log.Println("sleep 1s")
+	time.Sleep(time.Second)
+
+	db, err := New("/tmp/db", true)
+	log.Println("open db read only")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	err = db.Txn(func(txn *Txn) error {
+		a, err := txn.Get("a")
+		if err != nil {
+			return err
+		}
+
+		log.Printf("a: %s", a)
+		return nil
+	}, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
