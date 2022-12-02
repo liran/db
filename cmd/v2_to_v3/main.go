@@ -48,7 +48,7 @@ func main() {
 		}
 	}
 
-	dstDB, err := db.New(dst)
+	dstDB, err := db.New(dst, false)
 	if err != nil {
 		log.Fatalln(err)
 	}

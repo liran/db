@@ -10,7 +10,7 @@ import (
 )
 
 func TestAll(t *testing.T) {
-	db, err := New("/tmp/db")
+	db, err := New("/tmp/db", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestAll(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	db, err := New("/tmp/db")
+	db, err := New("/tmp/db", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestList(t *testing.T) {
 }
 
 func TestRW(t *testing.T) {
-	db, err := New("/tmp/db")
+	db, err := New("/tmp/db", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestRW(t *testing.T) {
 }
 
 func TestNotFound(t *testing.T) {
-	db, err := New("/tmp/db")
+	db, err := New("/tmp/db", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestNotFound(t *testing.T) {
 }
 
 func TestConflict(t *testing.T) {
-	db, err := New("/tmp/db")
+	db, err := New("/tmp/db", false)
 	if err != nil {
 		t.Fatal(err)
 	}

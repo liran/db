@@ -10,8 +10,10 @@ type DB struct {
 }
 
 // or set env: DATABASE_DIR
-func New(dir string) (*DB, error) {
-	db, err := bolt.Open(dir, 0666, nil)
+func New(dir string, readOnly bool) (*DB, error) {
+	opts := bolt.DefaultOptions
+	opts.ReadOnly = readOnly
+	db, err := bolt.Open(dir, 0666, opts)
 	if err != nil {
 		return nil, err
 	}

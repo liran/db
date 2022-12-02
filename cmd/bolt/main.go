@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// open the database.
-	client, err := db.New("/tmp/bolt")
+	client, err := db.New("/tmp/bolt", false)
 	if err != nil {
 		log.Fatal(err)
 	}
