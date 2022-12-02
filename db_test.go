@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"testing"
 	"time"
 )
@@ -194,3 +195,85 @@ func TestReadOnly(t *testing.T) {
 		log.Fatal(err)
 	}
 }
+
+func BenchmarkUpdate(b *testing.B) {
+	db, err := New("/tmp/db", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	raw, _ := os.ReadFile("test.json")
+
+	for i := 0; i < b.N; i++ {
+		db.Txn(func(txn *Txn) error {
+			return txn.Set("CA500000211380900", raw)
+		})
+	}
+}
+
+// func BenchmarkBatch(b *testing.B) {
+// 	db, err := New("/tmp/db", false)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer db.Close()
+
+// 	raw, _ := os.ReadFile("test.json")
+
+// 	for i := 0; i < b.N; i++ {
+// 		db.Batch(func(txn *Txn) error {
+// 			return txn.Set("CA500000211380900", raw)
+// 		})
+// 	}
+// }
+
+func UpdateWrite100Times(db *DB, data []byte) {
+	for i := 0; i < 100; i++ {
+		db.Txn(func(txn *Txn) error {
+			return txn.Set("CA500000211380900", data)
+		})
+	}
+}
+
+// func BatchWrite100Times(db *DB, data []byte) {
+// 	var wg sync.WaitGroup
+// 	wg.Add(100)
+// 	for i := 0; i < 100; i++ {
+// 		go func() {
+// 			defer wg.Done()
+// 			db.Batch(func(txn *Txn) error {
+// 				return txn.Set("CA500000211380900", data)
+// 			})
+// 		}()
+// 	}
+// 	wg.Wait()
+// }
+
+func BenchmarkUpdateWrite1000Times(b *testing.B) {
+	db, err := New("/tmp/db", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	raw, _ := os.ReadFile("test.json")
+
+	for i := 0; i < b.N; i++ {
+		UpdateWrite100Times(db, raw)
+	}
+}
+
+// func BenchmarkBatchWrite1000Times(b *testing.B) {
+// 	db, err := New("/tmp/db", false)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer db.Close()
+
+// 	raw, _ := os.ReadFile("test.json")
+
+// 	for i := 0; i < b.N; i++ {
+// 		BatchWrite100Times(db, raw)
+// 	}
+// }

@@ -51,5 +51,14 @@ func (t *DB) Txn(fn func(txn *Txn) error, readOnly ...bool) error {
 	if len(readOnly) > 0 && readOnly[0] {
 		return t.db.View(cb)
 	}
-	return t.db.Update(cb)
+	return t.db.Batch(cb)
 }
+
+// func (t *DB) Batch(fn func(txn *Txn) error) error {
+// 	cb := func(tx *bolt.Tx) error {
+// 		b := tx.Bucket(t.bucket)
+// 		b.FillPercent = 1.0
+// 		return fn(&Txn{b: b})
+// 	}
+// 	return t.db.Batch(cb)
+// }
