@@ -277,3 +277,38 @@ func BenchmarkUpdateWrite1000Times(b *testing.B) {
 // 		BatchWrite100Times(db, raw)
 // 	}
 // }
+
+func TestSort(t *testing.T) {
+	db, err := New("/tmp/db", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	err = db.Txn(func(txn *Txn) error {
+		txn.Set("job:b", "b")
+		txn.Set("job:c", "c")
+		txn.Set("job:a", "a")
+		txn.Set("job:a2", "a")
+		txn.Set("job:4", "b")
+		txn.Set("job:3", "c")
+		txn.Set("job:2", "a")
+		txn.Set("job:1", "a")
+		txn.Set("job:0", "a")
+		txn.Set("job:34", "a")
+		txn.Set("job:34a", "a")
+		txn.Set("job:34b", "a")
+		txn.Set("job:35", "a")
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db.Txn(func(txn *Txn) error {
+		return txn.List("job:", "", true, func(key string, value []byte) error {
+			log.Println(key)
+			return nil
+		})
+	}, true)
+}
