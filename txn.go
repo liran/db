@@ -77,8 +77,28 @@ func (t *Txn) Dec(key string, step int64) (int64, error) {
 	return val, t.Set(key, val)
 }
 
-func (t *Txn) List(prefix string, beginKey string, keyOnly bool, fn func(key string, value []byte) error) error {
+func (t *Txn) List(prefix string, fn func(key string, value []byte) (err error), options ...*ListOption) error {
+	beginKey := ""
+	containBegin := false
+	reverse := false
+	limit := 0
+	keyOnly := false
+	if len(options) > 0 {
+		opt := options[0]
+		beginKey = opt.Begin
+		containBegin = opt.ContainBegin
+		reverse = opt.Reverse
+		limit = opt.Limit
+		keyOnly = opt.KeyOnly
+	}
+
 	c := t.b.Cursor()
+	it := func() (key []byte, value []byte) {
+		if reverse {
+			return c.Prev()
+		}
+		return c.Next()
+	}
 
 	bytePrefix := []byte(prefix)
 
@@ -87,14 +107,14 @@ func (t *Txn) List(prefix string, beginKey string, keyOnly bool, fn func(key str
 	if beginKey != "" {
 		k, v = c.Seek([]byte(beginKey))
 		// skip to next
-		if k != nil {
-			k, v = c.Next()
+		if k != nil && !containBegin {
+			k, v = it()
 		}
 	} else {
 		k, v = c.Seek(bytePrefix)
 	}
 
-	for ; bytes.HasPrefix(k, bytePrefix); k, v = c.Next() {
+	for i := 0; bytes.HasPrefix(k, bytePrefix); k, v = it() {
 		var val []byte
 		if !keyOnly {
 			decode, err := GzipUncompress(v)
@@ -105,10 +125,12 @@ func (t *Txn) List(prefix string, beginKey string, keyOnly bool, fn func(key str
 			}
 		}
 		if err := fn(string(k), val); err != nil {
-			if errors.Is(err, ErrStopIterate) {
-				err = nil
-			}
 			return err
+		}
+
+		i++
+		if limit > 0 && i >= limit {
+			break
 		}
 	}
 	return nil

@@ -54,11 +54,8 @@ func (t *DB) Txn(fn func(txn *Txn) error, readOnly ...bool) error {
 	return t.db.Batch(cb)
 }
 
-// func (t *DB) Batch(fn func(txn *Txn) error) error {
-// 	cb := func(tx *bolt.Tx) error {
-// 		b := tx.Bucket(t.bucket)
-// 		b.FillPercent = 1.0
-// 		return fn(&Txn{b: b})
-// 	}
-// 	return t.db.Batch(cb)
-// }
+func (t *DB) List(prefix string, fn func(key string, value []byte) (err error), options ...*ListOption) error {
+	return t.Txn(func(txn *Txn) error {
+		return txn.List(prefix, fn, options...)
+	}, true)
+}
