@@ -29,7 +29,8 @@ func (t *Txn) Get(key string) ([]byte, error) {
 
 	decode, err := GzipUncompress(val)
 	if err != nil {
-		decode = val
+		decode = nil
+		decode = append(decode, val...)
 	}
 	return decode, nil
 }
@@ -119,7 +120,8 @@ func (t *Txn) List(prefix string, fn func(key string, value []byte) (stop bool, 
 		if !keyOnly {
 			decode, err := GzipUncompress(v)
 			if err != nil {
-				val = v
+				decode = nil
+				val = append(val, v...)
 			} else {
 				val = decode
 			}
