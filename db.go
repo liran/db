@@ -54,7 +54,7 @@ func (t *DB) Txn(fn func(txn *Txn) error, readOnly ...bool) error {
 	return t.db.Batch(cb)
 }
 
-func (t *DB) List(prefix string, fn func(key string, value []byte) error, options ...*ListOption) error {
+func (t *DB) List(prefix string, fn func(key string, value []byte) (stop bool, err error), options ...*ListOption) error {
 	return t.Txn(func(txn *Txn) error {
 		return txn.List(prefix, fn, options...)
 	}, true)

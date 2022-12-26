@@ -58,10 +58,10 @@ func TestList(t *testing.T) {
 
 	n := 0
 	err = db.Txn(func(txn *Txn) error {
-		return txn.List("test:", func(key string, value []byte) error {
+		return txn.List("test:", func(key string, value []byte) (bool, error) {
 			n++
 			log.Printf("[%s] %s", key, value)
-			return nil
+			return false, nil
 		})
 	}, true)
 	if err != nil {
@@ -306,9 +306,9 @@ func TestSort(t *testing.T) {
 	}
 
 	db.Txn(func(txn *Txn) error {
-		return txn.List("job:", func(key string, value []byte) error {
+		return txn.List("job:", func(key string, value []byte) (bool, error) {
 			log.Println(key)
-			return nil
+			return false, nil
 		})
 	}, true)
 }
@@ -328,9 +328,9 @@ func TestReserveList(t *testing.T) {
 	})
 
 	db.Txn(func(txn *Txn) error {
-		return txn.List("task:", func(key string, value []byte) error {
+		return txn.List("task:", func(key string, value []byte) (bool, error) {
 			log.Printf("%s = %s", key, value)
-			return nil
+			return false, nil
 		}, &ListOption{
 			Begin:        "task:8",
 			ContainBegin: true,

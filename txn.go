@@ -77,7 +77,7 @@ func (t *Txn) Dec(key string, step int64) (int64, error) {
 	return val, t.Set(key, val)
 }
 
-func (t *Txn) List(prefix string, fn func(key string, value []byte) error, options ...*ListOption) error {
+func (t *Txn) List(prefix string, fn func(key string, value []byte) (stop bool, err error), options ...*ListOption) error {
 	beginKey := ""
 	containBegin := false
 	reverse := false
@@ -124,7 +124,7 @@ func (t *Txn) List(prefix string, fn func(key string, value []byte) error, optio
 				val = decode
 			}
 		}
-		if err := fn(string(k), val); err != nil {
+		if b, err := fn(string(k), val); err != nil || b {
 			return err
 		}
 
