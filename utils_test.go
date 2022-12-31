@@ -21,3 +21,13 @@ func TestCompress(t *testing.T) {
 	}
 	log.Printf("[%d] [%d] %s", len(src), len(dst), raw)
 }
+
+func TestPaddingZero(t *testing.T) {
+	log.Println(PaddingZero(1000, 8))
+}
+
+func BenchmarkPaddingZero(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		PaddingZero(1000, 10)
+	}
+}

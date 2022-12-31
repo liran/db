@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -40,4 +41,19 @@ func GzipUncompress(src []byte) ([]byte, error) {
 		return nil, err
 	}
 	return io.ReadAll(zr)
+}
+
+func PaddingZero(val any, length int) string {
+	text := fmt.Sprintf("%v", val)
+	diff := length - len(text)
+	if diff <= 0 {
+		return text
+	}
+
+	var b bytes.Buffer
+	for i := 0; i < diff; i++ {
+		b.WriteString("0")
+	}
+	b.WriteString(text)
+	return b.String()
 }

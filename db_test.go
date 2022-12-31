@@ -286,19 +286,12 @@ func TestSort(t *testing.T) {
 	defer db.Close()
 
 	err = db.Txn(func(txn *Txn) error {
-		txn.Set("job:b", "b")
-		txn.Set("job:c", "c")
-		txn.Set("job:a", "a")
-		txn.Set("job:a2", "a")
-		txn.Set("job:4", "b")
-		txn.Set("job:3", "c")
-		txn.Set("job:2", "a")
-		txn.Set("job:1", "a")
-		txn.Set("job:0", "a")
-		txn.Set("job:34", "a")
-		txn.Set("job:34a", "a")
-		txn.Set("job:34b", "a")
-		txn.Set("job:35", "a")
+		txn.Set("job:0001", "")
+		txn.Set("job:0011", "")
+		txn.Set("job:1101", "")
+		txn.Set("job:0100", "")
+		txn.Set("job:0099", "")
+		txn.Set("job:0302", "")
 		return nil
 	})
 	if err != nil {
