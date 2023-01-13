@@ -16,7 +16,12 @@ func ToBytes(data any) []byte {
 	case string: // Prevent repeated double quotes in the string
 		value = []byte(v)
 	default:
-		value, _ = json.Marshal(data)
+		// no encode html tag
+		buffer := &bytes.Buffer{}
+		encoder := json.NewEncoder(buffer)
+		encoder.SetEscapeHTML(false)
+		encoder.Encode(data)
+		value = buffer.Bytes()
 	}
 	return value
 }
