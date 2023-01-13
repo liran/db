@@ -333,3 +333,26 @@ func TestReserveList(t *testing.T) {
 		})
 	}, true)
 }
+
+func TestSet(t *testing.T) {
+	db, err := New("/tmp/db", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	db.Txn(func(txn *Txn) error {
+		return txn.Set("abcd", "")
+	})
+
+	db.Txn(func(txn *Txn) error {
+		raw, err := txn.Get("abcd")
+		if err != nil {
+			return err
+		}
+
+		log.Printf("%s,has: %v", raw, txn.Has("abcd"))
+		return nil
+	}, true)
+
+}

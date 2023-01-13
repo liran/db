@@ -14,11 +14,14 @@ type Txn struct {
 
 func (t *Txn) Set(key string, value any) error {
 	raw := ToBytes(value)
-	compressed, err := GzipCompress(raw)
-	if err != nil || len(compressed) > len(raw) {
-		compressed = raw
+	if len(raw) > 0 {
+		compressed, err := GzipCompress(raw)
+		if err != nil || len(compressed) > len(raw) {
+			compressed = raw
+		}
+		return t.b.Put([]byte(key), compressed)
 	}
-	return t.b.Put([]byte(key), compressed)
+	return t.b.Put([]byte(key), nil)
 }
 
 func (t *Txn) Get(key string) ([]byte, error) {
