@@ -1,4 +1,4 @@
-module github.com/liran/db/v3
+module github.com/liran/db/v4
 
 go 1.18
 

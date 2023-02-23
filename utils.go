@@ -142,3 +142,11 @@ func ToModelName(model any) string {
 
 	return strings.ToLower(v.Type().Name())
 }
+
+func GetBucket(key string) string {
+	b, _, _ := strings.Cut(key, ":")
+	if b == "" {
+		return "default"
+	}
+	return b
+}

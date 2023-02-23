@@ -5,8 +5,7 @@ import (
 )
 
 type DB struct {
-	db     *bolt.DB
-	bucket []byte
+	db *bolt.DB
 }
 
 // or set env: DATABASE_DIR
@@ -18,35 +17,19 @@ func New(dir string, readOnly bool) (*DB, error) {
 		return nil, err
 	}
 
-	// create a default bucket
-	bucket := []byte("d")
-
-	if !readOnly {
-		err = db.Update(func(tx *bolt.Tx) error {
-			_, err := tx.CreateBucketIfNotExists(bucket)
-			return err
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &DB{db: db, bucket: bucket}, nil
+	return &DB{db: db}, nil
 }
 
 func (t *DB) Close() {
 	if t.db != nil {
 		t.db.Close()
 		t.db = nil
-		t.bucket = nil
 	}
 }
 
 func (t *DB) Txn(fn func(txn *Txn) error, readOnly ...bool) error {
 	cb := func(tx *bolt.Tx) error {
-		b := tx.Bucket(t.bucket)
-		b.FillPercent = 1.0
-		return fn(&Txn{b: b})
+		return fn(&Txn{t: tx})
 	}
 	if len(readOnly) > 0 && readOnly[0] {
 		return t.db.View(cb)

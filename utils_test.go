@@ -130,3 +130,52 @@ func TestToModelName(t *testing.T) {
 	log.Println(ToModelName(10))
 	log.Println(ToModelName(false))
 }
+
+func TestParseKey(t *testing.T) {
+	type TestData struct {
+		input    string
+		expected string
+	}
+
+	testCases := []TestData{
+		{
+			input:    "key:value",
+			expected: "key",
+		},
+		{
+			input:    "foo:bar:baz",
+			expected: "foo",
+		},
+		{
+			input:    "_12adf:bar:baz:324",
+			expected: "_12adf",
+		},
+		{
+			input:    "no-colon",
+			expected: "no-colon",
+		},
+		{
+			input:    "",
+			expected: "default",
+		},
+		{
+			input:    ":bar",
+			expected: "default",
+		},
+		{
+			input:    "bar::",
+			expected: "bar",
+		},
+		{
+			input:    "bar:",
+			expected: "bar",
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := GetBucket(tc.input)
+		if actual != tc.expected {
+			t.Errorf("expected '%v' but got '%v'", tc.expected, actual)
+		}
+	}
+}

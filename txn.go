@@ -9,23 +9,36 @@ import (
 )
 
 type Txn struct {
-	b *bolt.Bucket
+	t *bolt.Tx
 }
 
-func (t *Txn) Set(key string, value any) error {
+func (txn *Txn) Set(key string, value any) error {
+	bucket := GetBucket(key)
+	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
+	if err != nil {
+		return err
+	}
+	b.FillPercent = 1.0
+
 	raw := ToBytes(value)
 	if len(raw) > 0 {
 		compressed, err := GzipCompress(raw)
 		if err != nil || len(compressed) > len(raw) {
 			compressed = raw
 		}
-		return t.b.Put([]byte(key), compressed)
+		return b.Put([]byte(key), compressed)
 	}
-	return t.b.Put([]byte(key), nil)
+	return b.Put([]byte(key), nil)
 }
 
-func (t *Txn) Get(key string) ([]byte, error) {
-	val := t.b.Get([]byte(key))
+func (txn *Txn) Get(key string) ([]byte, error) {
+	bucket := GetBucket(key)
+	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
+	if err != nil {
+		return nil, err
+	}
+
+	val := b.Get([]byte(key))
 	if val == nil {
 		return nil, ErrKeyNotFound
 	}
@@ -38,17 +51,29 @@ func (t *Txn) Get(key string) ([]byte, error) {
 	return decode, nil
 }
 
-func (t *Txn) Has(key string) bool {
-	item := t.b.Get([]byte(key))
+func (txn *Txn) Has(key string) bool {
+	bucket := GetBucket(key)
+	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
+	if err != nil {
+		return false
+	}
+
+	item := b.Get([]byte(key))
 	return item != nil
 }
 
-func (t *Txn) Del(key string) error {
-	return t.b.Delete([]byte(key))
+func (txn *Txn) Del(key string) error {
+	bucket := GetBucket(key)
+	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
+	if err != nil {
+		return err
+	}
+
+	return b.Delete([]byte(key))
 }
 
-func (t *Txn) Unmarshal(key string, value any) error {
-	raw, err := t.Get(key)
+func (txn *Txn) Unmarshal(key string, value any) error {
+	raw, err := txn.Get(key)
 	if err != nil {
 		return errors.Wrapf(err, "read item, key: %s", key)
 	}
@@ -60,28 +85,28 @@ func (t *Txn) Unmarshal(key string, value any) error {
 }
 
 // return new value
-func (t *Txn) Inc(key string, step int64) (int64, error) {
+func (txn *Txn) Inc(key string, step int64) (int64, error) {
 	var val int64
-	err := t.Unmarshal(key, &val)
+	err := txn.Unmarshal(key, &val)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
 	}
 	val += step
-	return val, t.Set(key, val)
+	return val, txn.Set(key, val)
 }
 
 // return new value
-func (t *Txn) Dec(key string, step int64) (int64, error) {
+func (txn *Txn) Dec(key string, step int64) (int64, error) {
 	var val int64
-	err := t.Unmarshal(key, &val)
+	err := txn.Unmarshal(key, &val)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
 	}
 	val -= step
-	return val, t.Set(key, val)
+	return val, txn.Set(key, val)
 }
 
-func (t *Txn) List(prefix string, fn func(key string, value []byte) (stop bool, err error), options ...*ListOption) error {
+func (txn *Txn) List(prefix string, fn func(key string, value []byte) (stop bool, err error), options ...*ListOption) error {
 	beginKey := ""
 	containBegin := false
 	reverse := false
@@ -96,7 +121,13 @@ func (t *Txn) List(prefix string, fn func(key string, value []byte) (stop bool, 
 		keyOnly = opt.KeyOnly
 	}
 
-	c := t.b.Cursor()
+	bucket := GetBucket(prefix)
+	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
+	if err != nil {
+		return err
+	}
+
+	c := b.Cursor()
 	it := func() (key []byte, value []byte) {
 		if reverse {
 			return c.Prev()
