@@ -16,7 +16,12 @@ func (txn *Txn) IndexAdd(model any, field string, val, id any) error {
 		val = strings.ToLower(v)
 	}
 
-	if err := txn.Set(fmt.Sprintf("_i:%s:%s:%v:%v", modelName, field, val, id), ""); err != nil {
+	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, field, val, id)
+	if txn.Has(key) {
+		return nil
+	}
+
+	if err := txn.Set(key, ""); err != nil {
 		return err
 	}
 
@@ -75,7 +80,7 @@ func (txn *Txn) IndexList(model any, field string, val any, opts ...*ListOption)
 	return
 }
 
-func (txn *Txn) IndexCount(model, field string, val any) (total int64) {
+func (txn *Txn) IndexCount(model any, field string, val any) (total int64) {
 	modelName := ToModelName(model)
 
 	switch v := val.(type) {

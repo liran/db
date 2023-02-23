@@ -391,10 +391,12 @@ func TestIndexModel(t *testing.T) {
 
 	db.Txn(func(txn *Txn) error {
 		list, _ := txn.IndexList(&UserUsUUS{}, "email", "joHn@example")
-		log.Printf("%+v", list)
+		count := txn.IndexCount(&UserUsUUS{}, "email", "joHn@example")
+		log.Printf("%+v, count: %d", list, count)
 
 		list, _ = txn.IndexList(&UserUsUUS{}, "tail", "twe")
-		log.Printf("%+v", list)
+		count = txn.IndexCount(&UserUsUUS{}, "tail", "twe")
+		log.Printf("%+v, count: %d", list, count)
 
 		return nil
 	}, true)
