@@ -34,7 +34,7 @@ func (txn *Txn) Set(key string, value any) error {
 func (txn *Txn) Get(key string) ([]byte, error) {
 	bucket := GetBucket(key)
 	b := txn.t.Bucket([]byte(bucket))
-	if b != nil {
+	if b == nil {
 		return nil, ErrKeyNotFound
 	}
 

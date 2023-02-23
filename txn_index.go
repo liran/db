@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 )
@@ -192,7 +193,7 @@ func (txn *Txn) IndexModel(id, model any) error {
 			if !ok {
 				continue
 			}
-			// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
+			log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
 			txn.IndexAdd(modelName, indexName, val, id)
 		}
 	}
