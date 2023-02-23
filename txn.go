@@ -33,9 +33,9 @@ func (txn *Txn) Set(key string, value any) error {
 
 func (txn *Txn) Get(key string) ([]byte, error) {
 	bucket := GetBucket(key)
-	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
-	if err != nil {
-		return nil, err
+	b := txn.t.Bucket([]byte(bucket))
+	if b != nil {
+		return nil, ErrKeyNotFound
 	}
 
 	val := b.Get([]byte(key))
@@ -53,8 +53,8 @@ func (txn *Txn) Get(key string) ([]byte, error) {
 
 func (txn *Txn) Has(key string) bool {
 	bucket := GetBucket(key)
-	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
-	if err != nil {
+	b := txn.t.Bucket([]byte(bucket))
+	if b == nil {
 		return false
 	}
 
@@ -122,9 +122,9 @@ func (txn *Txn) List(prefix string, fn func(key string, value []byte) (stop bool
 	}
 
 	bucket := GetBucket(prefix)
-	b, err := txn.t.CreateBucketIfNotExists([]byte(bucket))
-	if err != nil {
-		return err
+	b := txn.t.Bucket([]byte(bucket))
+	if b == nil {
+		return nil
 	}
 
 	c := b.Cursor()

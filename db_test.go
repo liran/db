@@ -279,7 +279,7 @@ func BenchmarkUpdateWrite1000Times(b *testing.B) {
 // }
 
 func TestSort(t *testing.T) {
-	db, err := New("/tmp/db", false)
+	db, err := New("/tmp/db1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
