@@ -199,3 +199,14 @@ func (txn *Txn) IndexModel(id, model any) error {
 
 	return nil
 }
+
+func (txn *Txn) IndexFirst(model any, field string, val any) (string, error) {
+	list, err := txn.IndexList(model, field, val, &ListOption{Limit: 1})
+	if err != nil {
+		return "", err
+	}
+	if len(list) > 0 {
+		return list[0], nil
+	}
+	return "", nil
+}

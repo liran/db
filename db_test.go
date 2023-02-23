@@ -398,6 +398,9 @@ func TestIndexModel(t *testing.T) {
 		count = txn.IndexCount(&UserUsUUS{}, "tail", "twe")
 		log.Printf("%+v, count: %d", list, count)
 
+		id, _ := txn.IndexFirst(&UserUsUUS{}, "map", "22.3")
+		log.Printf("id: %s", id)
+
 		return nil
 	}, true)
 }
