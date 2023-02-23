@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
+	"strings"
+	"time"
 )
 
 func ToBytes(data any) []byte {
@@ -61,4 +64,81 @@ func PaddingZero(val any, length int) string {
 	}
 	b.WriteString(text)
 	return b.String()
+}
+
+// Whether value can be taken directly
+func ParseReflectValue(val reflect.Value) (any, bool) {
+	k := val.Kind()
+
+	switch k {
+	case reflect.Invalid,
+		reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Map,
+		reflect.Slice,
+		reflect.Struct:
+		return nil, false
+	}
+
+	if k == reflect.Pointer || k == reflect.UnsafePointer {
+		if val.IsNil() {
+			return nil, false
+		}
+		val = val.Elem()
+	}
+
+	if k == reflect.Interface {
+		if val.IsNil() {
+			return nil, false
+		}
+
+		switch v := val.Interface().(type) {
+		case time.Time:
+			return v.Format("2006-01-02"), true
+		case *time.Time:
+			return v.Format("2006-01-02"), true
+		case string:
+			if v == "" {
+				return "", false
+			}
+			return strings.ToLower(v), true
+		}
+	}
+
+	// converte time.Time to YYYY-MM-DD
+	if val.Type().String() == "time.Time" {
+		return val.Interface().(time.Time).Format("2006-01-02"), true
+	}
+
+	// string to lower
+	if k == reflect.String {
+		v := val.Interface().(string)
+		if v == "" {
+			return "", false
+		}
+		return strings.ToLower(v), true
+	}
+
+	return val.Interface(), true
+}
+
+func ToModelName(model any) string {
+	v := reflect.ValueOf(model)
+	k := v.Kind()
+	if k == reflect.Invalid {
+		return ""
+	}
+	if k == reflect.Pointer || k == reflect.UnsafePointer {
+		if v.IsNil() {
+			return ""
+		}
+		v = v.Elem()
+	}
+
+	if k >= 1 && k <= 16 || k == 24 {
+		return strings.ToLower(fmt.Sprintf("%v", model))
+	}
+
+	return strings.ToLower(v.Type().Name())
 }

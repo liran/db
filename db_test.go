@@ -356,3 +356,46 @@ func TestSet(t *testing.T) {
 	}, true)
 
 }
+
+func TestIndexModel(t *testing.T) {
+	db, err := New("/tmp/db1", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	type UserUsUUS struct {
+		ID    int
+		Name  string         `db:"index=name,"`
+		Email string         `db:"index,tohen=1"`
+		Tail  []string       `db:"index= tail"`
+		Float []float64      `db:"index"`
+		Map   map[string]any `db:"index,"`
+		Null  *time.Time     `db:"index =null;"`
+		Now   *time.Time     `db:"index;"`
+	}
+
+	now := time.Now()
+	db.Txn(func(txn *Txn) error {
+		user := &UserUsUUS{
+			ID:    1,
+			Name:  "John Doe",
+			Email: "john@example",
+			Tail:  []string{"One", "tWe"},
+			Float: []float64{1.2, 3.4},
+			Map:   map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
+			Now:   &now,
+		}
+		return txn.IndexModel(1, user)
+	})
+
+	db.Txn(func(txn *Txn) error {
+		list, _ := txn.IndexList(&UserUsUUS{}, "email", "joHn@example")
+		log.Printf("%+v", list)
+
+		list, _ = txn.IndexList(&UserUsUUS{}, "tail", "twe")
+		log.Printf("%+v", list)
+
+		return nil
+	}, true)
+}
