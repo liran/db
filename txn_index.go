@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -121,13 +120,15 @@ func (txn *Txn) IndexClear(model any, field string, val any) error {
 
 func (txn *Txn) IndexModel(id, model any) error {
 	modelValue := reflect.ValueOf(model)
-	for modelValue.Kind() == reflect.Pointer || modelValue.Kind() == reflect.UnsafePointer {
+	k := modelValue.Kind()
+	for k == reflect.Pointer || k == reflect.UnsafePointer {
 		if modelValue.IsNil() {
 			return nil
 		}
 		modelValue = modelValue.Elem()
+		k = modelValue.Kind()
 	}
-	if modelValue.Kind() != reflect.Struct {
+	if k != reflect.Struct {
 		return nil
 	}
 
@@ -171,7 +172,9 @@ func (txn *Txn) IndexModel(id, model any) error {
 					continue
 				}
 				// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-				txn.IndexAdd(modelName, indexName, val, id)
+				if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+					return err
+				}
 			}
 
 		case reflect.Map:
@@ -185,7 +188,9 @@ func (txn *Txn) IndexModel(id, model any) error {
 					continue
 				}
 				// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-				txn.IndexAdd(modelName, indexName, val, id)
+				if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+					return err
+				}
 			}
 
 		default:
@@ -193,8 +198,10 @@ func (txn *Txn) IndexModel(id, model any) error {
 			if !ok {
 				continue
 			}
-			log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-			txn.IndexAdd(modelName, indexName, val, id)
+			// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
+			if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+				return err
+			}
 		}
 	}
 
