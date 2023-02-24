@@ -377,9 +377,14 @@ func TestIndexModel(t *testing.T) {
 		NoIndex   string
 	}
 
+	type User interface {
+	}
+
+	var user User
+
 	now := time.Now()
 	db.Txn(func(txn *Txn) error {
-		user := &UserUsUUS{
+		user = &UserUsUUS{
 			ID:        1,
 			Name:      "John Doe",
 			Email:     "john@example",
