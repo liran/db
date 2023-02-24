@@ -35,6 +35,9 @@ func BenchmarkPaddingZero(b *testing.B) {
 }
 
 func TestParseReflectValue(t *testing.T) {
+	type Status string
+	var myStatus Status = "my_status"
+
 	type TestData struct {
 		input        reflect.Value
 		expectedAny  interface{}
@@ -87,17 +90,22 @@ func TestParseReflectValue(t *testing.T) {
 			expectedAny:  nil,
 			expectedBool: false,
 		},
+		{
+			input:        reflect.ValueOf(myStatus),
+			expectedAny:  string(myStatus),
+			expectedBool: true,
+		},
 	}
 
 	for _, tc := range testCases {
 		actualAny, actualBool := ParseReflectValue(tc.input)
 
 		if actualAny != tc.expectedAny {
-			t.Errorf("expected %v but got %v", tc.expectedAny, actualAny)
+			t.Errorf("expected '%v' but got '%v'", tc.expectedAny, actualAny)
 		}
 
 		if actualBool != tc.expectedBool {
-			t.Errorf("expected %v but got %v", tc.expectedBool, actualBool)
+			t.Errorf("expected '%v' but got '%v'", tc.expectedBool, actualBool)
 		}
 	}
 }

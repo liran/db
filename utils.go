@@ -115,7 +115,7 @@ func ParseReflectValue(val reflect.Value) (any, bool) {
 
 	// string to lower
 	if k == reflect.String {
-		v := val.Interface().(string)
+		v := fmt.Sprintf("%s", val.Interface())
 		if v == "" {
 			return "", false
 		}
