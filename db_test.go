@@ -432,3 +432,22 @@ func TestIndexModel(t *testing.T) {
 
 	printUser()
 }
+
+func TestMultipleBuckectInOneTxn(t *testing.T) {
+	db, err := New("/tmp/db1", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	err = db.Txn(func(txn *Txn) error {
+		if err = txn.Set("a:1", "1"); err != nil {
+			return err
+		}
+
+		return txn.Set("b:2", "2")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
