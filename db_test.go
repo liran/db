@@ -364,6 +364,8 @@ func TestIndexModel(t *testing.T) {
 	}
 	defer db.Close()
 
+	type StatusType string
+
 	type UserUsUUS struct {
 		ID        int
 		Name      string         `db:"index=name,"`
@@ -375,6 +377,7 @@ func TestIndexModel(t *testing.T) {
 		NowIdsafL *time.Time     `db:"index;"`
 		EmptyIo   string         `db:"index"`
 		NoIndex   string
+		Status    StatusType `db:"index"`
 	}
 
 	type User interface {
@@ -383,32 +386,49 @@ func TestIndexModel(t *testing.T) {
 	var user User
 
 	now := time.Now()
+	user = &UserUsUUS{
+		ID:        1,
+		Name:      "John Doe",
+		Email:     "john@example",
+		Tail:      []string{"One", "tWe"},
+		Float:     []float64{1.2, 3.4},
+		Map:       map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
+		NowIdsafL: &now,
+		NoIndex:   "node",
+		Status:    "2023",
+	}
+
 	db.Txn(func(txn *Txn) error {
-		user = &UserUsUUS{
-			ID:        1,
-			Name:      "John Doe",
-			Email:     "john@example",
-			Tail:      []string{"One", "tWe"},
-			Float:     []float64{1.2, 3.4},
-			Map:       map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
-			NowIdsafL: &now,
-			NoIndex:   "node",
-		}
-		return txn.IndexModel(1, user)
+		return txn.IndexModel(1, user, true)
 	})
 
+	printUser := func() {
+		db.Txn(func(txn *Txn) error {
+			list, _ := txn.IndexList(user, "email", "joHn@example")
+			count := txn.IndexCount(user, "email", "joHn@example")
+			log.Printf("email: %+v, count: %d", list, count)
+
+			list, _ = txn.IndexList(user, "tail", "twe")
+			count = txn.IndexCount(user, "tail", "twe")
+			log.Printf("tail: %+v, count: %d", list, count)
+
+			id, _ := txn.IndexFirst(user, "map", "22.3")
+			log.Printf("map->id: %s", id)
+
+			list, _ = txn.IndexList(user, "status", "2023")
+			count = txn.IndexCount(user, "status", "2023")
+			log.Printf("status: %+v, count: %d", list, count)
+
+			return nil
+		}, true)
+	}
+
+	printUser()
+
+	log.Println("delelte index --------------------------")
 	db.Txn(func(txn *Txn) error {
-		list, _ := txn.IndexList(&UserUsUUS{}, "email", "joHn@example")
-		count := txn.IndexCount(&UserUsUUS{}, "email", "joHn@example")
-		log.Printf("%+v, count: %d", list, count)
+		return txn.IndexModel(1, user, false)
+	})
 
-		list, _ = txn.IndexList(&UserUsUUS{}, "tail", "twe")
-		count = txn.IndexCount(&UserUsUUS{}, "tail", "twe")
-		log.Printf("%+v, count: %d", list, count)
-
-		id, _ := txn.IndexFirst(&UserUsUUS{}, "map", "22.3")
-		log.Printf("id: %s", id)
-
-		return nil
-	}, true)
+	printUser()
 }

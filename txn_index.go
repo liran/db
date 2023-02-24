@@ -123,7 +123,8 @@ func (txn *Txn) IndexClear(model any, field string, val any) error {
 	return txn.Del(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val))
 }
 
-func (txn *Txn) IndexModel(id, model any) error {
+// When isCreate is true, it means to create an index, otherwise it means to delete the index
+func (txn *Txn) IndexModel(id, model any, isCreate bool) error {
 	modelValue := reflect.ValueOf(model)
 	k := modelValue.Kind()
 	for k == reflect.Pointer || k == reflect.UnsafePointer {
@@ -140,6 +141,13 @@ func (txn *Txn) IndexModel(id, model any) error {
 	modelType := modelValue.Type()
 
 	modelName := ToSnake(modelType.Name())
+
+	var action func(model any, field string, val, id any) error
+	if isCreate {
+		action = txn.IndexAdd
+	} else {
+		action = txn.IndexDel
+	}
 
 	// Iterate over all available fields and read the tag value
 	for i := 0; i < modelType.NumField(); i++ {
@@ -179,7 +187,7 @@ func (txn *Txn) IndexModel(id, model any) error {
 					continue
 				}
 				// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-				if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+				if err := action(modelName, indexName, val, id); err != nil {
 					return err
 				}
 			}
@@ -195,7 +203,7 @@ func (txn *Txn) IndexModel(id, model any) error {
 					continue
 				}
 				// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-				if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+				if err := action(modelName, indexName, val, id); err != nil {
 					return err
 				}
 			}
@@ -206,7 +214,7 @@ func (txn *Txn) IndexModel(id, model any) error {
 				continue
 			}
 			// log.Printf("model: %s, index: %s, value: %v, id: %v", modelName, indexName, val, id)
-			if err := txn.IndexAdd(modelName, indexName, val, id); err != nil {
+			if err := action(modelName, indexName, val, id); err != nil {
 				return err
 			}
 		}
