@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/iancoleman/strcase"
 )
 
 func ToBytes(data any) []byte {
@@ -136,11 +138,14 @@ func ToModelName(model any) string {
 		v = v.Elem()
 	}
 
+	var name string
+	// general data type，such as: int float bool  string .....
 	if k >= 1 && k <= 16 || k == 24 {
-		return strings.ToLower(fmt.Sprintf("%v", model))
+		name = fmt.Sprintf("%v", model)
+	} else {
+		name = v.Type().Name()
 	}
-
-	return strings.ToLower(v.Type().Name())
+	return ToSnake(name)
 }
 
 func GetBucket(key string) string {
@@ -149,4 +154,8 @@ func GetBucket(key string) string {
 		return "default"
 	}
 	return b
+}
+
+func ToSnake(text string) string {
+	return strcase.ToSnakeWithIgnore(text, ".")
 }

@@ -365,29 +365,29 @@ func TestIndexModel(t *testing.T) {
 	defer db.Close()
 
 	type UserUsUUS struct {
-		ID      int
-		Name    string         `db:"index=name,"`
-		Email   string         `db:"index,tohen=1"`
-		Tail    []string       `db:"index= tail"`
-		Float   []float64      `db:"index"`
-		Map     map[string]any `db:"index,"`
-		Null    *time.Time     `db:"index =null;"`
-		Now     *time.Time     `db:"index;"`
-		Empty   string         `db:"index"`
-		NoIndex string
+		ID        int
+		Name      string         `db:"index=name,"`
+		Email     string         `db:"index,tohen=1"`
+		Tail      []string       `db:"index= tail"`
+		Float     []float64      `db:"index"`
+		Map       map[string]any `db:"index,"`
+		Null      *time.Time     `db:"index =null;"`
+		NowIdsafL *time.Time     `db:"index;"`
+		EmptyIo   string         `db:"index"`
+		NoIndex   string
 	}
 
 	now := time.Now()
 	db.Txn(func(txn *Txn) error {
 		user := &UserUsUUS{
-			ID:      1,
-			Name:    "John Doe",
-			Email:   "john@example",
-			Tail:    []string{"One", "tWe"},
-			Float:   []float64{1.2, 3.4},
-			Map:     map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
-			Now:     &now,
-			NoIndex: "node",
+			ID:        1,
+			Name:      "John Doe",
+			Email:     "john@example",
+			Tail:      []string{"One", "tWe"},
+			Float:     []float64{1.2, 3.4},
+			Map:       map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
+			NowIdsafL: &now,
+			NoIndex:   "node",
 		}
 		return txn.IndexModel(1, user)
 	})

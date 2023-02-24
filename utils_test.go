@@ -179,3 +179,44 @@ func TestParseKey(t *testing.T) {
 		}
 	}
 }
+
+func TestToSnake(t *testing.T) {
+	type TestData struct {
+		input    string
+		expected string
+	}
+
+	testCases := []TestData{
+		{
+			input:    "key value",
+			expected: "key_value",
+		},
+		{
+			input:    "chatGPTAccount",
+			expected: "chat_gpt_account",
+		},
+		{
+			input:    "CdasfAB",
+			expected: "cdasf_ab",
+		},
+		{
+			input:    "12.3",
+			expected: "12.3",
+		},
+		{
+			input:    "12,3",
+			expected: "12,3",
+		},
+		{
+			input:    "12-3",
+			expected: "12_3",
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := ToSnake(tc.input)
+		if actual != tc.expected {
+			t.Errorf("expected '%v' but got '%v'", tc.expected, actual)
+		}
+	}
+}

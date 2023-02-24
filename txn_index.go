@@ -10,13 +10,14 @@ const tagName = "db"
 
 func (txn *Txn) IndexAdd(model any, field string, val, id any) error {
 	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
 
 	switch v := val.(type) {
 	case string:
 		val = strings.ToLower(v)
 	}
 
-	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, field, val, id)
+	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, snakeField, val, id)
 	if txn.Has(key) {
 		return nil
 	}
@@ -26,19 +27,20 @@ func (txn *Txn) IndexAdd(model any, field string, val, id any) error {
 	}
 
 	// inc count
-	_, err := txn.Inc(fmt.Sprintf("_ic:%s:%s:%v", modelName, field, val), 1)
+	_, err := txn.Inc(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), 1)
 	return err
 }
 
 func (txn *Txn) IndexDel(model any, field string, val, id any) error {
 	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
 
 	switch v := val.(type) {
 	case string:
 		val = strings.ToLower(v)
 	}
 
-	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, field, val, id)
+	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, snakeField, val, id)
 	if !txn.Has(key) {
 		return nil
 	}
@@ -48,19 +50,20 @@ func (txn *Txn) IndexDel(model any, field string, val, id any) error {
 	}
 
 	// dec count
-	_, err := txn.Dec(fmt.Sprintf("_ic:%s:%s:%v", modelName, field, val), 1)
+	_, err := txn.Dec(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), 1)
 	return err
 }
 
 func (txn *Txn) IndexList(model any, field string, val any, opts ...*ListOption) (list []string, err error) {
 	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
 
 	switch v := val.(type) {
 	case string:
 		val = strings.ToLower(v)
 	}
 
-	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, field, val)
+	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, snakeField, val)
 
 	var opt *ListOption
 	if len(opts) > 0 {
@@ -82,29 +85,30 @@ func (txn *Txn) IndexList(model any, field string, val any, opts ...*ListOption)
 
 func (txn *Txn) IndexCount(model any, field string, val any) (total int64) {
 	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
 
 	switch v := val.(type) {
 	case string:
 		val = strings.ToLower(v)
 	}
 
-	txn.Unmarshal(fmt.Sprintf("_ic:%s:%s:%v", modelName, field, val), &total)
+	txn.Unmarshal(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), &total)
 	return
 }
 
 func (txn *Txn) IndexClear(model any, field string, val any) error {
 	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
 
 	switch v := val.(type) {
 	case string:
 		val = strings.ToLower(v)
 	}
 
-	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, field, val)
-
+	// delete list
+	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, snakeField, val)
 	opt := &ListOption{}
 	opt.KeyOnly = true
-
 	err := txn.List(prefix,
 		func(key string, value []byte) (bool, error) {
 			return false, txn.Del(key)
@@ -115,7 +119,8 @@ func (txn *Txn) IndexClear(model any, field string, val any) error {
 		return err
 	}
 
-	return txn.Del(fmt.Sprintf("_ic:%s:%s:%v", modelName, field, val))
+	// delete count
+	return txn.Del(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val))
 }
 
 func (txn *Txn) IndexModel(id, model any) error {
@@ -134,7 +139,7 @@ func (txn *Txn) IndexModel(id, model any) error {
 
 	modelType := modelValue.Type()
 
-	modelName := strings.ToLower(modelType.Name())
+	modelName := ToSnake(modelType.Name())
 
 	// Iterate over all available fields and read the tag value
 	for i := 0; i < modelType.NumField(); i++ {
@@ -142,12 +147,14 @@ func (txn *Txn) IndexModel(id, model any) error {
 
 		// Get the field tag value
 		tag := fieldType.Tag.Get(tagName)
-		if tag == "" {
+		if tag == "" || !strings.Contains(tag, "index") {
 			continue
 		}
 
-		// get index name
-		indexName := strings.ToLower(fieldType.Name)
+		// defautl index name is feild name
+		indexName := ToSnake(fieldType.Name)
+
+		// if specified manually, use the specified name
 		multTypes := strings.Split(strings.Trim(tag, ", ;"), ",")
 		for _, v := range multTypes {
 			if strings.HasPrefix(v, "index") {
