@@ -9,15 +9,9 @@ import (
 const tagName = "db"
 
 func (txn *Txn) IndexAdd(model any, field string, val, id any) error {
-	modelName := ToModelName(model)
-	snakeField := ToSnake(field)
+	baseKey := GenerateIndexBaseKey(model, field, val)
 
-	switch v := val.(type) {
-	case string:
-		val = strings.ToLower(v)
-	}
-
-	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, snakeField, val, id)
+	key := strings.ToLower(fmt.Sprintf("_i:%s:%v", baseKey, id))
 	if txn.Has(key) {
 		return nil
 	}
@@ -27,20 +21,14 @@ func (txn *Txn) IndexAdd(model any, field string, val, id any) error {
 	}
 
 	// inc count
-	_, err := txn.Inc(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), 1)
+	_, err := txn.Inc(fmt.Sprintf("_ic:%s", baseKey), 1)
 	return err
 }
 
 func (txn *Txn) IndexDel(model any, field string, val, id any) error {
-	modelName := ToModelName(model)
-	snakeField := ToSnake(field)
+	baseKey := GenerateIndexBaseKey(model, field, val)
 
-	switch v := val.(type) {
-	case string:
-		val = strings.ToLower(v)
-	}
-
-	key := fmt.Sprintf("_i:%s:%s:%v:%v", modelName, snakeField, val, id)
+	key := fmt.Sprintf("_i:%s:%v", baseKey, id)
 	if !txn.Has(key) {
 		return nil
 	}
@@ -50,20 +38,13 @@ func (txn *Txn) IndexDel(model any, field string, val, id any) error {
 	}
 
 	// dec count
-	_, err := txn.Dec(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), 1)
+	_, err := txn.Dec(fmt.Sprintf("_ic:%s", baseKey), 1)
 	return err
 }
 
 func (txn *Txn) IndexList(model any, field string, val any, opts ...*ListOption) (list []string, err error) {
-	modelName := ToModelName(model)
-	snakeField := ToSnake(field)
-
-	switch v := val.(type) {
-	case string:
-		val = strings.ToLower(v)
-	}
-
-	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, snakeField, val)
+	baseKey := GenerateIndexBaseKey(model, field, val)
+	prefix := fmt.Sprintf("_i:%s:", baseKey)
 
 	var opt *ListOption
 	if len(opts) > 0 {
@@ -84,29 +65,16 @@ func (txn *Txn) IndexList(model any, field string, val any, opts ...*ListOption)
 }
 
 func (txn *Txn) IndexCount(model any, field string, val any) (total int64) {
-	modelName := ToModelName(model)
-	snakeField := ToSnake(field)
-
-	switch v := val.(type) {
-	case string:
-		val = strings.ToLower(v)
-	}
-
-	txn.Unmarshal(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val), &total)
+	baseKey := GenerateIndexBaseKey(model, field, val)
+	txn.Unmarshal(fmt.Sprintf("_ic:%s", baseKey), &total)
 	return
 }
 
 func (txn *Txn) IndexClear(model any, field string, val any) error {
-	modelName := ToModelName(model)
-	snakeField := ToSnake(field)
-
-	switch v := val.(type) {
-	case string:
-		val = strings.ToLower(v)
-	}
+	baseKey := GenerateIndexBaseKey(model, field, val)
 
 	// delete list
-	prefix := fmt.Sprintf("_i:%s:%s:%v:", modelName, snakeField, val)
+	prefix := fmt.Sprintf("_i:%s:", baseKey)
 	opt := &ListOption{}
 	opt.KeyOnly = true
 	err := txn.List(prefix,
@@ -120,7 +88,7 @@ func (txn *Txn) IndexClear(model any, field string, val any) error {
 	}
 
 	// delete count
-	return txn.Del(fmt.Sprintf("_ic:%s:%s:%v", modelName, snakeField, val))
+	return txn.Del(fmt.Sprintf("_ic:%s", baseKey))
 }
 
 // When isCreate is true, it means to create an index, otherwise it means to delete the index
@@ -140,7 +108,7 @@ func (txn *Txn) IndexModel(id, model any, isCreate bool) error {
 
 	modelType := modelValue.Type()
 
-	modelName := ToSnake(modelType.Name())
+	modelName := modelType.Name()
 
 	var action func(model any, field string, val, id any) error
 	if isCreate {
@@ -160,7 +128,7 @@ func (txn *Txn) IndexModel(id, model any, isCreate bool) error {
 		}
 
 		// defautl index name is feild name
-		indexName := ToSnake(fieldType.Name)
+		indexName := fieldType.Name
 
 		// if specified manually, use the specified name
 		multTypes := strings.Split(strings.Trim(tag, ", ;"), ",")

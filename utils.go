@@ -159,3 +159,9 @@ func GetBucket(key string) string {
 func ToSnake(text string) string {
 	return strcase.ToSnakeWithIgnore(text, ".")
 }
+
+func GenerateIndexBaseKey(model any, field string, val any) string {
+	modelName := ToModelName(model)
+	snakeField := ToSnake(field)
+	return strings.ToLower(fmt.Sprintf("%s:%s:%v", modelName, snakeField, val))
+}
