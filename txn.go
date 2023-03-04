@@ -28,7 +28,7 @@ func (txn *Txn) Set(key string, value any) error {
 		}
 		return b.Put([]byte(key), compressed)
 	}
-	return b.Put([]byte(key), nil)
+	return b.Put([]byte(key), raw)
 }
 
 func (txn *Txn) Get(key string) ([]byte, error) {

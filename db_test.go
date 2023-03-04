@@ -503,3 +503,25 @@ func TestIndexCount(t *testing.T) {
 	}, true)
 	log.Println("total:", total)
 }
+
+func TestHas(t *testing.T) {
+	db, err := New("/tmp/db1", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	key := "12900-3"
+	db.Txn(func(txn *Txn) error {
+		txn.Set(key, "")
+		val, _ := txn.Get(key)
+		log.Printf("val:%v, has: %v", val, txn.Has(key))
+		return nil
+	})
+
+	db.Txn(func(txn *Txn) error {
+		val, _ := txn.Get(key)
+		log.Printf("val:%v, has: %v", val, txn.Has(key))
+		return nil
+	}, true)
+}
