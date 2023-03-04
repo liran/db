@@ -3,13 +3,13 @@ package db
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
 	"strings"
 	"time"
 
+	json "github.com/goccy/go-json"
 	"github.com/iancoleman/strcase"
 )
 
@@ -26,6 +26,7 @@ func ToBytes(data any) []byte {
 		encoder := json.NewEncoder(buffer)
 		encoder.SetEscapeHTML(false)
 		encoder.Encode(data)
+		buffer.Truncate(buffer.Len() - 1) // remove suffix "\n"
 		value = buffer.Bytes()
 	}
 	return value

@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func TestToBytes(t *testing.T) {
+	log.Println(ToBytes(1))
+}
+
 func TestCompress(t *testing.T) {
 	src := []byte("hello world!")
 	dst, err := GzipCompress(src)
