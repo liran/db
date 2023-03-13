@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	clone "github.com/huandu/go-clone"
+	"reflect"
 )
 
 func (txn *Txn) ModelNextID(model any, length int) string {
@@ -35,13 +34,12 @@ func (txn *Txn) ModelIdLength(model any) (length int) {
 	return
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelSet(model, id any) error {
 	modelName := ToModelName(model)
 	key := fmt.Sprintf("%s:%v", modelName, id)
 
 	// update index
-	old := clone.Clone(model)
+	old := reflect.New(reflect.TypeOf(model)).Interface()
 	err := txn.Unmarshal(key, old)
 	if err != nil {
 		if !errors.Is(err, ErrKeyNotFound) {
@@ -65,7 +63,6 @@ func (txn *Txn) ModelSet(model, id any) error {
 	return txn.Set(key, model)
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelDel(model, id any) error {
 	modelName := ToModelName(model)
 	key := fmt.Sprintf("%s:%v", modelName, id)
@@ -91,12 +88,11 @@ func (txn *Txn) ModelDel(model, id any) error {
 	return txn.Del(key)
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelUpdate(model, id any, cb func(m any) error) error {
 	modelName := ToModelName(model)
 	key := fmt.Sprintf("%s:%v", modelName, id)
 
-	m := clone.Clone(model)
+	m := reflect.New(reflect.TypeOf(model)).Interface()
 	err := txn.Unmarshal(key, m)
 	if err != nil {
 		return err
@@ -109,17 +105,15 @@ func (txn *Txn) ModelUpdate(model, id any, cb func(m any) error) error {
 	return txn.ModelSet(m, id)
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelGet(model, id any) (any, error) {
 	modelName := ToModelName(model)
 	key := fmt.Sprintf("%s:%v", modelName, id)
 
-	m := clone.Clone(model)
+	m := reflect.New(reflect.TypeOf(model)).Interface()
 	err := txn.Unmarshal(key, m)
 	return m, err
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (list []any, err error) {
 	modelName := ToModelName(model)
 	prefix := fmt.Sprintf("%s:", modelName)
@@ -137,7 +131,7 @@ func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (lis
 		Reverse:      reverse,
 	}
 	err = txn.List(prefix, func(key string, value []byte) (bool, error) {
-		m := clone.Clone(model)
+		m := reflect.New(reflect.TypeOf(model)).Interface()
 		if err := json.Unmarshal(value, m); err != nil {
 			return true, err
 		}
@@ -147,7 +141,6 @@ func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (lis
 	return
 }
 
-// model is a pointer of T
 func (txn *Txn) ModelIndexList(model any, feild string, val any, opts ...*ListOption) (list []any, err error) {
 	ids, err := txn.IndexList(model, feild, val, opts...)
 	if err != nil {
