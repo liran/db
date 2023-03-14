@@ -159,6 +159,16 @@ func (txn *Txn) ModelGet(model, id any) (any, error) {
 	return m, err
 }
 
+func (txn *Txn) ModelUnmarshal(model, id any) error {
+	modelName := ToModelName(model)
+	if modelName == "" {
+		return ErrKeyNotFound
+	}
+
+	key := fmt.Sprintf("%s:%v", modelName, id)
+	return txn.Unmarshal(key, model)
+}
+
 func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (list []any, err error) {
 	modelName := ToModelName(model)
 	if modelName == "" {
