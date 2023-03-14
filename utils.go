@@ -182,3 +182,15 @@ func NewModel(model any) any {
 	}
 	return reflect.New(modelVal.Type()).Interface()
 }
+
+func ToEntity[T any](val any) T {
+	return val.(T)
+}
+
+func ToEntities[T any](items []any) []T {
+	var ts []T
+	for _, v := range items {
+		ts = append(ts, v.(T))
+	}
+	return ts
+}

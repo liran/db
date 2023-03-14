@@ -598,6 +598,13 @@ func TestModel(t *testing.T) {
 			return err
 		}
 
+		m, err := txn.ModelGet(user, id)
+		if err != nil {
+			return err
+		}
+		newUser := ToEntity[*UserUsUUS](m)
+		log.Println(newUser.Email)
+
 		list, err := txn.ModelList(user, 10, "", true)
 		if err != nil {
 			return err
