@@ -166,3 +166,19 @@ func GenerateIndexBaseKey(model any, field string, val any) string {
 	snakeField := ToSnake(field)
 	return strings.ToLower(fmt.Sprintf("%s:%s:%v", modelName, snakeField, val))
 }
+
+func NewModel(model any) any {
+	modelVal := reflect.ValueOf(model)
+	k := modelVal.Kind()
+	for k == reflect.Pointer || k == reflect.UnsafePointer {
+		if modelVal.IsNil() {
+			return nil
+		}
+		modelVal = modelVal.Elem()
+		k = modelVal.Kind()
+	}
+	if k != reflect.Struct {
+		return nil
+	}
+	return reflect.New(modelVal.Type()).Interface()
+}

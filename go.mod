@@ -1,6 +1,6 @@
 module github.com/liran/db/v4
 
-go 1.18
+go 1.20
 
 require (
 	github.com/goccy/go-json v0.10.0

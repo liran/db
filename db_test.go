@@ -525,3 +525,110 @@ func TestHas(t *testing.T) {
 		return nil
 	}, true)
 }
+
+func TestModel(t *testing.T) {
+	db, err := New("/tmp/db1", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	type UserUsUUS struct {
+		ID        string
+		Name      string         `db:"index=name,"`
+		Email     string         `db:"index,tohen=1"`
+		Tail      []string       `db:"index= tail"`
+		Float     []float64      `db:"index"`
+		Map       map[string]any `db:"index,"`
+		Null      *time.Time     `db:"index =null;"`
+		NowIdsafL *time.Time     `db:"index;"`
+		EmptyIo   string         `db:"index"`
+		NoIndex   string
+	}
+
+	now := time.Now()
+	user := &UserUsUUS{
+		ID:        "0",
+		Name:      "John Doe",
+		Email:     "john@example",
+		Tail:      []string{"One", "tWe"},
+		Float:     []float64{1.2, 3.4},
+		Map:       map[string]any{"int": 234, "float": 22.3, "string": "Ac", "time": &now, "nil": nil},
+		NowIdsafL: &now,
+		NoIndex:   "node",
+	}
+
+	err = db.Txn(func(txn *Txn) error {
+		total := txn.ModelTotal(user)
+		log.Println("total:", total)
+
+		counter := txn.ModelCounter(user)
+		log.Println("counter:", counter)
+
+		id := txn.ModelNextID(user, 11)
+		log.Println("id:", id)
+
+		if err := txn.ModelSet(user, id); err != nil {
+			return err
+		}
+
+		if err := txn.ModelSet(nil, id); err != nil {
+			return err
+		}
+
+		if err := txn.ModelSet(user.Map, id); err != nil {
+			return err
+		}
+
+		length := txn.ModelIdLength(user)
+		log.Println("id length:", length)
+
+		counter = txn.ModelCounter(user)
+		log.Println("counter:", counter)
+
+		total = txn.ModelTotal(user)
+		log.Println("total:", total)
+
+		err := txn.ModelUpdate(user, id, func(m any) error {
+			u := m.(*UserUsUUS)
+			u.ID = id
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		list, err := txn.ModelList(user, 10, "", true)
+		if err != nil {
+			return err
+		}
+		log.Println("list:", len(list))
+		for _, v := range list {
+			log.Printf("%+v", v)
+		}
+
+		list, err = txn.ModelIndexList(user, "email", "john@example")
+		if err != nil {
+			return err
+		}
+		log.Println("list:", len(list))
+		for _, v := range list {
+			log.Printf("%+v", v)
+		}
+
+		if err := txn.ModelDel(user, id); err != nil {
+			return err
+		}
+
+		list, err = txn.ModelList(user, 10, "", false)
+		if err != nil {
+			return err
+		}
+		log.Println("list:", len(list))
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

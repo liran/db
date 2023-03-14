@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 )
 
 func (txn *Txn) ModelNextID(model any, length int) string {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return ""
+	}
+
 	c, _ := txn.Inc(fmt.Sprintf("_counter:%s", modelName), 1)
 
 	txn.Set(fmt.Sprintf("_id_len:%s", modelName), length)
@@ -18,28 +21,47 @@ func (txn *Txn) ModelNextID(model any, length int) string {
 
 func (txn *Txn) ModelCounter(model any) (count int64) {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return 0
+	}
+
 	txn.Unmarshal(fmt.Sprintf("_counter:%s", modelName), &count)
 	return
 }
 
 func (txn *Txn) ModelTotal(model any) (count int64) {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return 0
+	}
+
 	txn.Unmarshal(fmt.Sprintf("_total:%s", modelName), &count)
 	return
 }
 
 func (txn *Txn) ModelIdLength(model any) (length int) {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return 0
+	}
+
 	txn.Unmarshal(fmt.Sprintf("_id_len:%s", modelName), &length)
 	return
 }
 
 func (txn *Txn) ModelSet(model, id any) error {
 	modelName := ToModelName(model)
-	key := fmt.Sprintf("%s:%v", modelName, id)
+	if modelName == "" {
+		return nil
+	}
 
 	// update index
-	old := reflect.New(reflect.TypeOf(model)).Interface()
+	old := NewModel(model)
+	if old == nil {
+		return nil
+	}
+
+	key := fmt.Sprintf("%s:%v", modelName, id)
 	err := txn.Unmarshal(key, old)
 	if err != nil {
 		if !errors.Is(err, ErrKeyNotFound) {
@@ -65,17 +87,26 @@ func (txn *Txn) ModelSet(model, id any) error {
 
 func (txn *Txn) ModelDel(model, id any) error {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return nil
+	}
+
+	m := NewModel(model)
+	if m == nil {
+		return nil
+	}
+
 	key := fmt.Sprintf("%s:%v", modelName, id)
 
-	// update index
-	err := txn.Unmarshal(key, model)
+	// delete index
+	err := txn.Unmarshal(key, m)
 	if err != nil {
 		if !errors.Is(err, ErrKeyNotFound) {
 			return err
 		}
 		return nil
 	}
-	if err = txn.IndexModel(id, model, false); err != nil {
+	if err = txn.IndexModel(id, m, false); err != nil {
 		return err
 	}
 
@@ -88,11 +119,18 @@ func (txn *Txn) ModelDel(model, id any) error {
 	return txn.Del(key)
 }
 
-func (txn *Txn) ModelUpdate(model, id any, cb func(m any) error) error {
-	modelName := ToModelName(model)
-	key := fmt.Sprintf("%s:%v", modelName, id)
+func (txn *Txn) ModelUpdate(model, id any, cb func(mPointer any) error) error {
+	m := NewModel(model)
+	if m == nil {
+		return ErrKeyNotFound
+	}
 
-	m := reflect.New(reflect.TypeOf(model)).Interface()
+	modelName := ToModelName(m)
+	if modelName == "" {
+		return ErrKeyNotFound
+	}
+
+	key := fmt.Sprintf("%s:%v", modelName, id)
 	err := txn.Unmarshal(key, m)
 	if err != nil {
 		return err
@@ -106,16 +144,27 @@ func (txn *Txn) ModelUpdate(model, id any, cb func(m any) error) error {
 }
 
 func (txn *Txn) ModelGet(model, id any) (any, error) {
-	modelName := ToModelName(model)
-	key := fmt.Sprintf("%s:%v", modelName, id)
+	m := NewModel(model)
+	if m == nil {
+		return nil, ErrKeyNotFound
+	}
 
-	m := reflect.New(reflect.TypeOf(model)).Interface()
+	modelName := ToModelName(m)
+	if modelName == "" {
+		return nil, ErrKeyNotFound
+	}
+
+	key := fmt.Sprintf("%s:%v", modelName, id)
 	err := txn.Unmarshal(key, m)
 	return m, err
 }
 
 func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (list []any, err error) {
 	modelName := ToModelName(model)
+	if modelName == "" {
+		return nil, nil
+	}
+
 	prefix := fmt.Sprintf("%s:", modelName)
 
 	containBegin := false
@@ -131,7 +180,7 @@ func (txn *Txn) ModelList(model any, limit int, begin string, reverse bool) (lis
 		Reverse:      reverse,
 	}
 	err = txn.List(prefix, func(key string, value []byte) (bool, error) {
-		m := reflect.New(reflect.TypeOf(model)).Interface()
+		m := NewModel(model)
 		if err := json.Unmarshal(value, m); err != nil {
 			return true, err
 		}
